@@ -260,9 +260,13 @@ class ArduinoController(QWidget):
         play_sync_button = QPushButton("Play Synchronize", self)
         play_sync_button.clicked.connect(self.synch_audio)
 
-        calibrate_button = QPushButton("Calibrate laser", self)
+        calibrate_button = QPushButton("Manual calibrate laser", self)
         calibrate_button.clicked.connect(lambda: self.calibrate_laser())
         calibrate_button.setStyleSheet("background-color: #801502")
+
+        auto_calibrate_button = QPushButton("AUTO calibrate laser", self)
+        auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
+        auto_calibrate_button.setStyleSheet("background-color: #001502")
 
         start_record_button = QPushButton("Start record", self)
         start_record_button.clicked.connect(lambda: self.start_record())
@@ -276,6 +280,7 @@ class ArduinoController(QWidget):
         actions_layout.addWidget(play_tone_button, 0, 1)
         actions_layout.addWidget(play_sync_button, 0, 2)
         actions_layout.addWidget(calibrate_button, 2, 0)
+        actions_layout.addWidget(auto_calibrate_button, 2, 1)
         actions_layout.addWidget(start_record_button, 4, 0)
         actions_layout.addWidget(stop_record_button, 4, 1)
 
@@ -463,6 +468,9 @@ class ArduinoController(QWidget):
             self.print_laser_amplitude()
             self.run_pulse(on_duration)
             time.sleep(sleep_time)
+    
+    def auto_calibrate_laser(self):
+        self.controller.auto_calibrate(plot=True)
     
     def print_laser_amplitude(self):
         print(f'Laser amplitude set to: {self.laser_amp:.2f}v')

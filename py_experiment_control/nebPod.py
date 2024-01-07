@@ -64,6 +64,9 @@ class Controller:
             print(f"No Serial port found on {port}. GUI will show up but not do anything")
         # Set the gas map if supplied
         self.gas_map = gas_map or {0:'O2',1:'room air',2:'hypercapnia',3:'hypoxia',4:'N2'}
+        self.ADC_RANGE=1023 # 10bit adc range (TODO: read from teeensy)
+        self.V_REF = 3.3 # Teensy 3.3 vref
+        self.MAX_MILLIWATTAGE = 500. # TODO: Get from thorlabs lightmeter
     
 
     @event_timer
@@ -271,6 +274,76 @@ class Controller:
 
         return(label,'opto',params_out)
     
+
+    def poll_laser_power(self,amp,verbose=False,output='mw'):
+        '''
+        amp: float between 0-1 (v)
+        '''
+        amp_int = self._amp2int(amp)
+        print(f'Testing amplitude: {amp}') if verbose else None
+        self.serial_port.serialObject.write('o'.encode('utf-8'))
+        self.serial_port.serialObject.write('p'.encode('utf-8'))
+        self.serial_port.write(amp_int,'uint8')
+        while self.serial_port.bytesAvailable()<2:
+            time.sleep(0.001)
+        power_int = self.serial_port.read(1,'uint16') # Power as a 10bit integer
+        power_v = power_int/self.ADC_RANGE * self.V_REF # Powerr as a voltage
+        power_mw = (power_v/2)/self.MAX_MILLIWATTAGE # power in milliwatts
+        self.block_until_read()
+
+        if output=='v':
+            return(power_v)
+        elif output=='mw':
+            return(power_mw)
+        else:
+            print('returning read voltage')
+            return(power_mw)
+
+        
+    def auto_calibrate(self,amp_range=None,amp_res=0.01,plot = False,output='mw',verbose=False):
+        amp_range = amp_range or [0.5,1.01]
+        amps_to_test = np.arange(amp_range[0],amp_range[1],amp_res)
+        # Add a zero to get background voltage
+        amps_to_test = np.concatenate([[0],amps_to_test])
+
+        powers = np.zeros_like(amps_to_test) * np.nan
+
+        for ii,amp in enumerate(amps_to_test):
+            power_mw = self.poll_laser_power(amp,verbose=verbose,output=output)
+            powers[ii] = power_mw
+
+        if plot:
+            f = plt.figure()
+            plt.plot(amps_to_test[1:],powers[1:],'ko-')
+            if output == 'mw':
+                plt.ylabel('Power (mw)')
+            else:
+                plt.ylabel('Analog voltage read')
+            plt.axhline(powers[0],color='r',ls='--')
+            
+            plt.xlabel('Command voltage (V)')
+            plt.tight_layout()
+            plt.show()
+
+        return(amps_to_test,powers)
+
+    def turn_on_laser(self,amp,verbose=False):
+        print(f'Turning on laser at amp: {amp}') if verbose else None
+        amp_int = self._amp2int(amp)
+        self.serial_port.serialObject.write('o'.encode('utf-8'))
+        self.serial_port.serialObject.write('o'.encode('utf-8'))
+        self.serial_port.write(amp_int,'uint8')
+        self.block_until_read()
+    
+    def turn_off_laser(self,amp,verbose=False):
+        print(f'Turning off laser from amp: {amp}') if verbose else None
+        amp_int = self._amp2int(amp)
+        self.serial_port.serialObject.write('o'.encode('utf-8'))
+        self.serial_port.serialObject.write('x'.encode('utf-8'))
+        self.serial_port.write(amp_int,'uint8')
+        self.block_until_read()
+
+       
     @interval_timer
     def play_tone(self,freq,duration_sec,verbose=False):
         '''

@@ -57,16 +57,41 @@ void loop() {
       case 'h':
         processCommandH(); // Hering Breuer
         break;
+      case 'o':
+        processCommandO();
+        break;
 
       // Add more cases if needed
     }
     pyControl.writeUint8(1);
 
   }
-  // pyControl.flush();
-
 
 }
+
+void processCommandO(){ // opto utilities
+  char subcommand = pyControl.readChar();
+  int amp = pyControl.readUint8();
+  float amp_f = amp2float(amp);
+  uint power;
+
+  switch (subcommand){
+    case 'p':
+      power = cobalt.poll_laser_power(amp_f);
+      pyControl.writeUint16(power);
+      break;
+    //poll
+    case 'o':
+      cobalt._turn_on(amp_f);
+      break;
+    // laser on
+    case 'x':
+      cobalt._turn_off(amp_f);
+      break;
+    //laser off
+  }
+}
+
 
 void processCommandH() {
   char subcommand = pyControl.readChar();
