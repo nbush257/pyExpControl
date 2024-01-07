@@ -1,7 +1,7 @@
-# TODO: closed loop opto calibration
-# TODO: simple turn on and turn off laser
 # TODO: Camera control
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
+# TODO: implement simple wait and wrap settle
+# TODO: make melody blocking
 
 from ArCOM import ArCOMObject 
 import serial
@@ -94,7 +94,7 @@ class Controller:
 
         print(f'Presenting {gas} for {presentation_time}s') if verbose else None
         self.open_valve(inv_map[gas])
-        time.sleep(presentation_time)
+        wait(presentation_time,msg=f'Presenting {gas}')
         return(f'present_{gas}','gas',{})
     
     @event_timer
@@ -350,6 +350,7 @@ class Controller:
         Frequency in Hz (float)
         Duration in s (int)
         '''
+        self.empty_read_buffer()
         duration_ms = sec2ms(duration_sec)
         print(f'Playing audio tone: frequency{freq}, duration:{duration_sec:.3f} (s)') if verbose else None
         self.serial_port.serialObject.write('aa'.encode('utf-8'))
@@ -377,6 +378,17 @@ class Controller:
         )
         return(label,'event',params_out)
 
+    @interval_timer
+    def play_ttls(self,verbose=False):
+        melody = [
+            261.63, 261.63, 392.00, 392.00, 440.00, 440.00, 392.00,
+            349.23, 349.23, 329.63, 329.63, 293.66, 293.66, 261.63
+        ]
+        print('Playing twinkle twinkle little star :)') if verbose else None
+        for note in melody:
+            self.play_tone(note,0.5,verbose=True)
+        return('audio_alert','event',{})
+        
     @interval_timer
     def play_synch(self,verbose=False):
         print('Running audio synch sound') if verbose else None
@@ -434,7 +446,7 @@ class Controller:
 
     def empty_read_buffer(self):
         while self.serial_port.bytesAvailable()>0:
-            self.serial_port.read(1,'uint8')
+            self.serial_port.serialObject.read()
 
     def reset(self):
         self.stop_recording()
@@ -442,6 +454,7 @@ class Controller:
         self.end_hb()
         # while self.serial_port.bytesAvailable()>0:
         #     self.serial_port.read(1,'byte')
+    
     
     def close(self):
         self.reset()
@@ -472,27 +485,31 @@ def sec2ms(val):
     return(int(val*1000))  
 
 @interval_timer
-def settle(settle_time_sec,verbose=True,progress='bar'):
+def wait(wait_time_sec,msg=None,progress='bar'):
     '''
     progress can be: 'bar' (would be fun to have a animation)
     '''
+    msg = msg or 'Waiting'
     start_time = time.time()
-    print('Settling probe...') if verbose and progress == None else None
     sleep_step=1
     try:
         if progress == 'bar':
             from tqdm import tqdm
-            pbar = tqdm(total=int(settle_time_sec),bar_format='{desc}: |{bar}{r_bar}')
-            pbar.set_description('Waiting for probe to settle')
-            while get_elapsed_time(start_time)<settle_time_sec:
+            pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
+            pbar.set_description(msg)
+            while get_elapsed_time(start_time)<wait_time_sec:
                 time.sleep(sleep_step)
                 pbar.update(sleep_step)
             pbar.close()
     except:
         print('Progress ui not supported. Need to install TQDM')
+    return('wait','event',{})
 
 
-
+@interval_timer
+def settle(settle_time_sec,verbose=True,progress='bar'):
+    msg = 'Waiting for probe to settle'
+    wait(settle_time_sec,msg=msg)
     print('Done settling') if verbose else None
     return('probe_settle','event',{})
 

@@ -1,6 +1,6 @@
 #TODO: run protocols
 #TODO: add connection, port choosing, reconnection button
-#TODO: Run laser while pressed button.
+#TODO: Run laser while pressed button. Mostly implemetned, just need to add the button and callback
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator
