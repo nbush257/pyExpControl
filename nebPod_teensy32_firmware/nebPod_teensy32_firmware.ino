@@ -60,13 +60,35 @@ void loop() {
       case 'o':
         processCommandO();
         break;
+      case 'c': // Cobalt
+        processCommandC();
+        break;
 
       // Add more cases if needed
     }
-    pyControl.writeUint8(1);
+    // Write back to the pycontroller to let it know we finished that command
+    pyControl.writeUint8(255);
 
   }
 
+}
+
+void processCommandC(){
+  char subcommand = pyControl.readChar();
+  switch(subcommand){
+    case 'm': //'modify' - modify the cobalt object
+      char mode = pyControl.readChar();
+      
+      int power_meter_pin = pyControl.readUint8();    
+      cobalt.MODE = mode;
+  
+      cobalt.POWER_METER_PIN = power_meter_pin;
+      cobalt.begin();
+
+
+    break;
+
+  }
 }
 
 void processCommandO(){ // opto utilities

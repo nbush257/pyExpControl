@@ -79,6 +79,7 @@ class Controller:
         self.log = []
         self.rec_start_time = None
         self.rec_stop_time = None
+        self.init_cobalt()
     
     @logger
     @event_timer
@@ -576,6 +577,18 @@ class Controller:
         self.wait(settle_time_sec,msg=msg)
         print('Done settling') if verbose else None
         return('probe_settle','event',{})
+    
+
+    def init_cobalt(self,mode ='S',power_meter_pin =16,verbose=False):
+        '''
+        Use this to initialize or modify the cobalt object in the arduino. Particularly useful if you want to switch between sigmoidal and binary modes
+        '''
+        self.serial_port.serialObject.write('c'.encode('utf-8'))
+        self.serial_port.serialObject.write('m'.encode('utf-8'))
+        self.serial_port.serialObject.write(mode.encode('utf-8'))
+        self.serial_port.write(power_meter_pin,'uint8')
+        self.block_until_read()
+        print(f'initialized cobalt with mode {mode} and power meter pin {power_meter_pin}') if verbose else None
 
 def sec2ms(val):
     '''
