@@ -1,7 +1,6 @@
 # TODO: Camera control
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
-# TODO: implement simple wait and wrap settle
-# TODO: make melody blocking
+# TODO: allow to run in non-sigmoidal mode
 
 from ArCOM import ArCOMObject 
 import serial
@@ -12,6 +11,8 @@ import datetime
 import threading
 import seaborn as sns
 import pandas as pd
+from pathlib import Path
+
 def interval_timer(func):
     '''
     appends the start and stop time to the output of the function 
@@ -52,9 +53,16 @@ def event_timer(func):
 
     return wrapper
 
+def logger(func):
+    def wrapper(self, *args, log_enabled=True,**kwargs):
+        result = func(self, *args, **kwargs)
+        if log_enabled:
+            self.log.append(result)
+        return result
+    return wrapper
 
 class Controller:
-    def __init__(self,port,gas_map = None):
+    def __init__(self,port,gas_map = None,cobalt_mode='S'):
         try:
             self.serial_port = ArCOMObject(port,115200)  # Replace 'COM11' with the actual port of your Arduino
             self.IS_CONNECTED=True
@@ -67,8 +75,12 @@ class Controller:
         self.ADC_RANGE=1023 # 10bit adc range (TODO: read from teeensy)
         self.V_REF = 3.3 # Teensy 3.3 vref
         self.MAX_MILLIWATTAGE = 500. # TODO: Get from thorlabs lightmeter
+        self.settle_time_sec = 15*60
+        self.log = []
+        self.rec_start_time = None
+        self.rec_stop_time = None
     
-
+    @logger
     @event_timer
     def open_valve(self,valve_number):
         start_time = time.time()
@@ -79,8 +91,9 @@ class Controller:
         label=f'open_valve_{int(valve_number)}'
         return(label,'gas',{})
     
+    @logger
     @event_timer
-    def present_gas(self,gas,presentation_time = 5.0,verbose=False):
+    def present_gas(self,gas,presentation_time = 5.0,verbose=False,progress='bar'):
         '''
         this is a blocking wrapper to open_valve that takes a gas name as input,
         and then sleeps the function for the presentation time
@@ -93,10 +106,11 @@ class Controller:
         inv_map = {v: k for k, v in self.gas_map.items()}
 
         print(f'Presenting {gas} for {presentation_time}s') if verbose else None
-        self.open_valve(inv_map[gas])
-        wait(presentation_time,msg=f'Presenting {gas}')
+        self.open_valve(inv_map[gas],log_enabled=False)
+        self.wait(presentation_time,msg=f'Presenting {gas}',progress=progress)
         return(f'present_{gas}','gas',{})
     
+    @logger
     @event_timer
     def end_hb(self,verbose=False):
         print('End hering breuer') if verbose else None
@@ -106,6 +120,7 @@ class Controller:
 
         return('end_heringbreuer','event',{})
 
+    @logger
     @event_timer
     def start_hb(self,verbose=False):
         print('start hering breuer') if verbose else None
@@ -113,16 +128,18 @@ class Controller:
         self.serial_port.serialObject.write('b'.encode('utf-8'))
         self.block_until_read()
         return('start_heringbreuer','event',{})
-
+    
+    @logger
     @interval_timer
     def timed_hb(self,duration,verbose=False):
         print(f'Run hering breuer for {duration}s') if verbose else None
 
-        self.start_hb()
+        self.start_hb(log_enabled=False)
         time.sleep(duration)
-        self.end_hb()
+        self.end_hb(log_enabled=False)
         return('hering_breuer','event',{'duration':duration})
     
+    @logger
     @event_timer
     def run_pulse(self,duration_sec,amp,verbose=False):
         '''
@@ -145,7 +162,8 @@ class Controller:
         )
 
         return(label,'opto',params_out)
-
+    
+    @logger
     @interval_timer
     def run_train(self,duration_sec,freq,amp,pulse_dur_sec,verbose=False):
         '''
@@ -161,11 +179,11 @@ class Controller:
         print(f'Running opto train:\n\tAmplitude:{amp:.2f}V\n\tFrequency:{freq:.1f}Hz\n\tPulse duration:{pulse_dur}ms\n\tTrain duration:{duration_sec:.3f}s') if verbose else None
 
         self.empty_read_buffer()
-        amp = self._amp2int(amp)
+        amp_int = self._amp2int(amp)
         self.serial_port.serialObject.write('t'.encode('utf-8'))
         self.serial_port.write(duration,'uint16')
         self.serial_port.write(freq,'uint8')
-        self.serial_port.write(amp,'uint8')
+        self.serial_port.write(amp_int,'uint8')
         self.serial_port.write(pulse_dur,'uint8')
         self.block_until_read()
 
@@ -178,7 +196,7 @@ class Controller:
         )
         return(label,'opto',params_out)
 
-
+    @logger
     @interval_timer
     def run_tagging(self,n=75,pulse_dur_sec=0.010,amp=1.0,ipi_sec=3,verbose=True):
         '''
@@ -195,7 +213,7 @@ class Controller:
         for ii in range(n):
             if verbose:
                 print(f'\ttag {pulse_duration_ms}ms stim: {ii+1} of {n}. amp: {amp} ')
-            self.run_pulse(pulse_dur_sec,amp)
+            self.run_pulse(pulse_dur_sec,amp,log_enabled=False)
             time.sleep(ipi_sec)
         # self.block_until_read()
         
@@ -208,8 +226,9 @@ class Controller:
         )
         return(label,'opto',params_out)
 
+    @logger
     @interval_timer
-    def phasic_stim(self,phase,mode,n,amp,duration_sec,intertrain_interval_sec,freq=None,pulse_dur_sec=None,verbose=False):
+    def phasic_stim(self,phase,mode,n,amp,duration_sec,intertrain_interval_sec=0.0,freq=None,pulse_dur_sec=None,verbose=False):
         '''
         mode: 'e','i','t','p' (expiration,inspiration,trains,pulses)
         n : number of repititons
@@ -240,6 +259,10 @@ class Controller:
             print(f'Running opto phasic stims:{phase_map[phase]},{mode_map[mode]}')
             # print(f'\tAmplitude:{amp:.2f}V\n\tFrequency:{freq:.1f}Hz\n\tPulse duration:{pulse_dur_ms}ms\n\tTrain duration:{duration_sec:.3f}s') if verbose else None
         
+        
+        if n==1:
+            intertrain_interval_sec=0.0
+
         intertrain_interval_ms = sec2ms(intertrain_interval_sec)
         duration_ms = sec2ms(duration_sec)
 
@@ -327,6 +350,7 @@ class Controller:
 
         return(amps_to_test,powers)
 
+
     def turn_on_laser(self,amp,verbose=False):
         print(f'Turning on laser at amp: {amp}') if verbose else None
         amp_int = self._amp2int(amp)
@@ -335,6 +359,7 @@ class Controller:
         self.serial_port.write(amp_int,'uint8')
         self.block_until_read()
     
+
     def turn_off_laser(self,amp,verbose=False):
         print(f'Turning off laser from amp: {amp}') if verbose else None
         amp_int = self._amp2int(amp)
@@ -343,7 +368,7 @@ class Controller:
         self.serial_port.write(amp_int,'uint8')
         self.block_until_read()
 
-       
+    @logger
     @interval_timer
     def play_tone(self,freq,duration_sec,verbose=False):
         '''
@@ -365,11 +390,12 @@ class Controller:
         )
         return(label,'event',params_out)
 
+    @logger
     @interval_timer
     def play_alert(self,verbose=False):
         freq=1000
         duration=0.500
-        self.play_tone(freq,duration,verbose=verbose)
+        self.play_tone(freq,duration,verbose=verbose,log_enabled=False)
         
         label = 'audio_alert'
         params_out = dict(
@@ -378,17 +404,21 @@ class Controller:
         )
         return(label,'event',params_out)
 
+
+    @logger
     @interval_timer
     def play_ttls(self,verbose=False):
         melody = [
             261.63, 261.63, 392.00, 392.00, 440.00, 440.00, 392.00,
             349.23, 349.23, 329.63, 329.63, 293.66, 293.66, 261.63
         ]
+        durations = np.array([1,1,1,1,1,1,2,1,1,1,1,1,1,2])*0.25
         print('Playing twinkle twinkle little star :)') if verbose else None
-        for note in melody:
-            self.play_tone(note,0.5,verbose=True)
-        return('audio_alert','event',{})
+        for note,duration in zip(melody,durations):
+            self.play_tone(note,duration,verbose=False,log_enabled=False)
+        return('audio_alert_ttls','event',{})
         
+    @logger
     @interval_timer
     def play_synch(self,verbose=False):
         print('Running audio synch sound') if verbose else None
@@ -398,37 +428,44 @@ class Controller:
 
         return('audio_synch','event',{})
     
+    @logger
     @event_timer
-    def start_recording(self,verbose=True):
+    def start_recording(self,verbose=True,silent=False):
+        self.play_alert() if not silent else None
         self.empty_read_buffer()
+        self.rec_start_time = time.time()
         self.serial_port.serialObject.write('r'.encode('utf-8'))
         self.serial_port.serialObject.write('b'.encode('utf-8'))
         self.block_until_read()
-        print('Starting recording!') if verbose else None
+        print('='*50+'\nStarting recording!\n'+'='*50) if verbose else None
         return('rec_start','event',{})
 
+    @logger
     @event_timer
-    def stop_recording(self,verbose=True,reset_to_O2=True):
+    def stop_recording(self,verbose=True,reset_to_O2=True,silent=False):
         self.empty_read_buffer()
         self.serial_port.serialObject.write('r'.encode('utf-8'))
         self.serial_port.serialObject.write('e'.encode('utf-8'))
         self.block_until_read()
-        print('Stopping recording!') if verbose else None
+        self.rec_stop_time=time.time()
+        print('='*50+'\nStopping recording!\n'+'='*50) if verbose else None
+        self.play_alert() if not silent else None
 
         if reset_to_O2:
-            self.present_gas('O2',1,verbose=True)
+            self.present_gas('O2',1,verbose=False,progress=False)
 
         return('rec_stop','event',{})
 
 
-
+    @logger
     @event_timer
     def start_camera_trig(self,fps=120,verbose=False):
         #TODO: make a user determined framerate
         # print(f'Starting camera at {fps}') if verbose else None
         pass
         # return('start_camera','event',{'fps':fps})
-
+    
+    @logger
     @event_timer
     def stop_camera_trig(self):
         # print(f'Stopping camera') if verbose else None
@@ -475,6 +512,70 @@ class Controller:
         else:
             pass
         return(int(amp*100))
+    
+    def save_log(self,path = None,filename=None,make_relative=True,verbose=True):
+        '''
+        Save log to a file
+        '''
+        path = path or Path(r'D:/sglx_data') 
+        filename = filename or 'all_event_log.tsv'
+        save_fn = path.joinpath(filename)
+        log_df = pd.DataFrame(self.log)
+        
+        # make times relative to recording start
+        if make_relative:
+            log_df['start_time'] -=self.rec_start_time
+            log_df['end_time'] -=self.rec_start_time
+        
+        log_df.to_csv(save_fn,sep='\t')
+        print(f'Log saved to {save_fn}')
+
+    @logger
+    def make_log_entry(self,label,category,start_time = None,end_time = None,**kwargs):
+        '''
+        Formats information that is needed for a log entry
+        '''
+        start_time = time.time() or start_time
+        end_time = np.nan or end_time
+        output=dict(
+            label=label,
+            category=category,
+            start_time=start_time,
+            end_time=end_time,
+            **kwargs)
+        return(output)
+    
+    @interval_timer
+    def wait(self,wait_time_sec,msg=None,progress='bar'):
+        '''
+        progress can be: 'bar' (would be fun to have a animation)
+        '''
+        msg = msg or 'Waiting'
+        start_time = time.time()
+        update_step=1
+        try:
+            if progress == 'bar':
+                from tqdm import tqdm
+                pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
+                pbar.set_description(msg)
+                while get_elapsed_time(start_time)<=wait_time_sec:
+                    time.sleep(update_step)
+                    pbar.update(update_step)
+                pbar.close()
+            else:
+                time.sleep(wait_time_sec)
+        except:
+            print('Progress ui not supported. Need to install TQDM')
+        return('wait','event',{})
+    
+    @interval_timer
+    def settle(self,settle_time_sec=None,verbose=True,progress='bar'):
+        if settle_time_sec is None:
+            settle_time_sec = self.settle_time_sec
+        msg = 'Waiting for probe to settle'
+        self.wait(settle_time_sec,msg=msg)
+        print('Done settling') if verbose else None
+        return('probe_settle','event',{})
 
 def sec2ms(val):
     '''
@@ -484,49 +585,12 @@ def sec2ms(val):
     val = float(val)
     return(int(val*1000))  
 
-@interval_timer
-def wait(wait_time_sec,msg=None,progress='bar'):
-    '''
-    progress can be: 'bar' (would be fun to have a animation)
-    '''
-    msg = msg or 'Waiting'
-    start_time = time.time()
-    sleep_step=1
-    try:
-        if progress == 'bar':
-            from tqdm import tqdm
-            pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
-            pbar.set_description(msg)
-            while get_elapsed_time(start_time)<wait_time_sec:
-                time.sleep(sleep_step)
-                pbar.update(sleep_step)
-            pbar.close()
-    except:
-        print('Progress ui not supported. Need to install TQDM')
-    return('wait','event',{})
 
 
-@interval_timer
-def settle(settle_time_sec,verbose=True,progress='bar'):
-    msg = 'Waiting for probe to settle'
-    wait(settle_time_sec,msg=msg)
-    print('Done settling') if verbose else None
-    return('probe_settle','event',{})
 
-def make_log_entry(label,category,start_time = None,end_time = None,**kwargs):
-    '''
-    Formats information that is needed for a log entry
-    '''
-    start_time = time.time() or start_time
-    end_time = np.nan or end_time
-    output=dict(
-        label=label,
-        category=category,
-        start_time=start_time,
-        end_time=end_time,
-        **kwargs)
 
-    return(output)
+
+
 
 def get_elapsed_time(start_time):
     curr_time = time.time()

@@ -36,82 +36,75 @@ RUN_PATH = Path('D:/sglx_data')
 def main(controller):
 
     # Keeping our logs seperate for now. Maybe want to join them later.
-    log = [] 
 
     
     # Initialize with O2 - not logging here because isoflurane is a special experiment
-    controller.present_gas('O2',1,verbose=True)
+    controller.present_gas('O2',1,verbose=True,log_enabled=False)
     # gas_log.append(controller.present_gas('O2',1,verbose=True))
     print(f'Set ISO to {doses[0]:.2f}%')
     
     # Let the probe settle
-    nebPod.settle(SETTLE_SEC)
+    controller.settle(SETTLE_SEC)
 
     # Start recording
-    rec_start = controller.start_recording()
-    rec_start_time = rec_start['start_time']
-    log.append(rec_start)
-    
+    controller.start_recording()
+
     for dose in doses:    
         dose_name = f'iso_{dose:.2f}%'    
-        print(dose_name)
-        # Iso is not it's own functino because it is a special case
-        iso_log = nebPod.make_log_entry(dose_name,'gas')
-        log.append(iso_log)
+        # Iso is not it's own function because it is a special case
+        controller.make_log_entry(dose_name,'gas')
+        controller.wait(EXPOSE_TIME,msg=f'Presenting {dose_name}')
+        controller.play_alert()
 
-        time.sleep(EXPOSE_TIME)
-        log.append(controller.play_alert())
-
-    log.append(controller.present_gas('hypercapnia',3,verbose=True))
-    log.append(controller.present_gas('hypoxia',3,verbose=True))
-    log.append(controller.present_gas('O2',3,verbose=True))
+    controller.present_gas('hypercapnia',3)
+    controller.present_gas('hypoxia',3)
+    controller.present_gas('O2',3,verbose=True)
 
 
-    log.append(controller.timed_hb(2,verbose=True))
+    controller.timed_hb(2,verbose=True)
 
-    log.append(controller.play_tone(1000,3))
-    log.append(controller.play_synch())
+    controller.play_tone(1000,3)
+    controller.play_ttls()
+    controller.play_synch()
 
-    # Test phasic stims
-    for ii in range(N_STIMS):
-        log.append(controller.phasic_stim('i','h',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True))
-    for ii in range(N_STIMS):
-        log.append(controller.phasic_stim('e','h',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True))
+    # # Test phasic stims
+    # for ii in range(N_STIMS):
+    #     controller.phasic_stim('i','h',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
+    # for ii in range(N_STIMS):
+    #     controller.phasic_stim('e','h',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
 
-    for ii in range(N_STIMS):
-        log.append(controller.phasic_stim('i','p',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True))
-    for ii in range(N_STIMS):
-        log.append(controller.phasic_stim('e','p',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True))
+    # for ii in range(N_STIMS):
+    #     controller.phasic_stim('i','p',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
+    # for ii in range(N_STIMS):
+    #     controller.phasic_stim('e','p',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
 
-    for ii in range(N_STIMS):
-        log.append(controller.phasic_stim('i','t',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True))
-    for ii in range(N_STIMS):
-        log.append(controller.phasic_stim('e','t',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True))
+    # for ii in range(N_STIMS):
+    #     controller.phasic_stim('i','t',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True)
+    # for ii in range(N_STIMS):
+    #     controller.phasic_stim('e','t',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True)
 
-    # Test tagging
-    log.append(controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI))
-    log.append(controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI,pulse_dur_sec=0.02))
+    # # Test tagging
+    # controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI)
+    # controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI,pulse_dur_sec=0.02)
     
 
     # Test Pulse
     for stim_dur in [0.01,0.1,0.25]:
         for amp in [0.6,0.8,1]:
-            log.append(controller.run_pulse(stim_dur,amp,verbose=True))
-            time.sleep(1)
+            controller.run_pulse(stim_dur,amp,verbose=True)
+            controller.wait(1.0,progress=None)
     
     # Test train
     for freq in [10,15,20]:
         for amp  in [0.6,0.8,1]:
             for pulse_dur in [0.01,0.02]:
-                log.append(controller.run_train(2,freq,amp,pulse_dur,verbose=True))
-                time.sleep(1)
+                controller.run_train(2,freq,amp,pulse_dur,verbose=True)
+                controller.wait(1.0,progress=None)
 
-    log.append(controller.stop_recording())
+    controller.stop_recording()
+    controller.save_log()
 
-    log_df = pd.DataFrame(log)
-    log_df['start_time'] -=rec_start_time
-    log_df['end_time'] -=rec_start_time
-    log_df.to_csv(RUN_PATH.joinpath('all_event_log.tsv'),sep='\t')
+
 
 
 # Need to do this once the logging is figured out

@@ -171,6 +171,7 @@ void playTone() {
   int freq = pyControl.readUint16();
   int duration = pyControl.readUint16();
   tbox.playTone(freq,duration);
+  delay(duration);
 }
 
 void runTagging() {
