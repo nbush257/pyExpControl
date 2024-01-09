@@ -8,7 +8,7 @@ You will need to include the "cobalt-control" and "Tbox" libraries (.cpp, .h) in
 
 #### Usage for gui:
 ```
-cd /path/to/nebPod/
+cd /path/to/nebPod/python
 python nebPod-gui.py 
 ```
 
