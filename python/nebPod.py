@@ -1,16 +1,19 @@
 # TODO: Camera control
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
-
+import os
+import sys
+from pathlib import Path
+curr_dir = Path(os.getcwd())
+sys.path.append(str(curr_dir))
+sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
 from ArCOM import ArCOMObject 
-import serial
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-import datetime
-import threading
-import seaborn as sns
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
+
 
 def interval_timer(func):
     '''
@@ -554,7 +557,6 @@ class Controller:
         start_time = time.time()
         update_step=1
         if progress == 'bar':
-            from tqdm import tqdm
             pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
             pbar.set_description(msg)
             while get_elapsed_time(start_time)<=wait_time_sec:
@@ -604,44 +606,3 @@ def plot_events(df):
     df whould be either a intervals or times dataframe
     '''
     pass
-
-def plot_events(events,stims,recording_start,plot=True):
-    # TODO FINISH LOGGING
-    # TODO: standardize for ALF
-    event_log = pd.DataFrame(events,columns=['event','absolute_time'])
-    stim_log = pd.DataFrame(stims,columns=['stim_epochs','absolute_time'])
-    event_log['t0'] = event_log['absolute_time'] - recording_start
-    stim_log['t0'] = stim_log['absolute_time'] - recording_start
-
-    if plot:
-        f = plt.figure()
-        for ii in range(0,event_log.shape[0]):
-            t0 = event_log.loc[ii,'t0']
-            if ii>=log.shape[0]-1:
-                tf = t0
-            else:
-                tf = event_log.loc[ii+1,'t0']
-            evt = event_log.loc[ii,'event']
-            plt.hlines(0,t0,tf,lw=10,color=plt.cm.Dark2_r(ii/10))
-            plt.axvline(t0,color='k',ls=':')
-            plt.text(t0,0.05,evt,ha='left',va='bottom',rotation=45)
-
-        for ii in range(0,stim_log.shape[0]):
-            t0 = stim_log.loc[ii,'t0']
-            if ii>=stim_log.shape[0]-1:
-                tf = t0
-            else:
-                tf = stim_log.loc[ii+1,'t0']
-            evt = stim_log.loc[ii,'stim_epochs']
-            plt.hlines(-0.2,t0,tf,lw=10,color=plt.cm.Dark2_r(ii/10))
-            plt.axvline(t0,color='k',ls=':')
-            plt.text(t0,-0.2,evt,ha='left',va='bottom',rotation=-45)
-        plt.ylim(-0.5,0.5)
-        sns.despine(left=True)
-        plt.xlabel('Time (s)')
-        plt.yticks([])
-        plt.tight_layout()
-        plt.show()
-    return(log,f)
-
-

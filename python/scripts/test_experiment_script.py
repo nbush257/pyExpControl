@@ -3,9 +3,10 @@ Use this script to test all the functions in the experiment controller and as a 
 NEB 2024-01-06
 '''
 
-import time
+
 import sys
 from pathlib import Path
+import os
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
