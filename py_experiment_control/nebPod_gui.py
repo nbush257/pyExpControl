@@ -131,12 +131,18 @@ class ArduinoController(QWidget):
         pulse_1000ms_button = QPushButton("1000ms Pulse", self)
         pulse_1000ms_button.clicked.connect(lambda: self.run_pulse(1))
 
+                
+        hold_on_laser = QPushButton("Hold laser", self)
+        hold_on_laser.pressed.connect(self.laser_on)
+        hold_on_laser.released.connect(self.laser_off)
+
         pulse_layout.addWidget(pulse_10ms_button, 1, 0)
         pulse_layout.addWidget(pulse_50ms_button, 1, 1)
         pulse_layout.addWidget(pulse_100ms_button, 1, 2)
         pulse_layout.addWidget(pulse_200ms_button, 2, 0)
         pulse_layout.addWidget(pulse_500ms_button, 2, 1)
         pulse_layout.addWidget(pulse_1000ms_button, 2, 2)
+        pulse_layout.addWidget(hold_on_laser, 3, 1)
 
         main_layout.addWidget(group_box_pulse, 2, 1)
 
@@ -472,6 +478,12 @@ class ArduinoController(QWidget):
     def auto_calibrate_laser(self):
         self.controller.auto_calibrate(plot=True)
     
+    def laser_on(self):
+        self.controller.turn_on_laser(self.laser_amp)
+    
+    def laser_off(self):
+        self.controller.turn_off_laser(self.laser_amp)
+
     def print_laser_amplitude(self):
         print(f'Laser amplitude set to: {self.laser_amp:.2f}v')
     

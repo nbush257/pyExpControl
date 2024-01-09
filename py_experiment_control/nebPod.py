@@ -74,7 +74,7 @@ class Controller:
         self.gas_map = gas_map or {0:'O2',1:'room air',2:'hypercapnia',3:'hypoxia',4:'N2'}
         self.ADC_RANGE=1023 # 10bit adc range (TODO: read from teeensy)
         self.V_REF = 3.3 # Teensy 3.3 vref
-        self.MAX_MILLIWATTAGE = 500. # TODO: Get from thorlabs lightmeter
+        self.MAX_MILLIWATTAGE = 310. # TODO: Get from thorlabs lightmeter
         self.settle_time_sec = 15*60
         self.log = []
         self.rec_start_time = None
@@ -312,7 +312,7 @@ class Controller:
             time.sleep(0.001)
         power_int = self.serial_port.read(1,'uint16') # Power as a 10bit integer
         power_v = power_int/self.ADC_RANGE * self.V_REF # Powerr as a voltage
-        power_mw = (power_v/2)/self.MAX_MILLIWATTAGE # power in milliwatts
+        power_mw = (power_v/2)*self.MAX_MILLIWATTAGE # power in milliwatts
         self.block_until_read()
 
         if output=='v':
@@ -320,8 +320,8 @@ class Controller:
         elif output=='mw':
             return(power_mw)
         else:
-            print('returning read voltage')
-            return(power_mw)
+            print('returning read digital bit val')
+            return(power_int)
 
         
     def auto_calibrate(self,amp_range=None,amp_res=0.01,plot = False,output='mw',verbose=False):
@@ -335,7 +335,7 @@ class Controller:
         for ii,amp in enumerate(amps_to_test):
             power_mw = self.poll_laser_power(amp,verbose=verbose,output=output)
             powers[ii] = power_mw
-
+        powers -=powers[0]
         if plot:
             f = plt.figure()
             plt.plot(amps_to_test[1:],powers[1:],'ko-')
@@ -581,7 +581,7 @@ class Controller:
 
     def init_cobalt(self,mode ='S',power_meter_pin =16,verbose=False):
         '''
-        Use this to initialize or modify the cobalt object in the arduino. Particularly useful if you want to switch between sigmoidal and binary modes
+        Use this to initialize or modify the cobalt object in the arduino. Particularly useful if you want to switch between sigmoidal andz
         '''
         self.serial_port.serialObject.write('c'.encode('utf-8'))
         self.serial_port.serialObject.write('m'.encode('utf-8'))
