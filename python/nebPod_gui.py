@@ -6,11 +6,16 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPu
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator
 from PyQt5.QtCore import Qt
 import serial
-from ArCOM import ArCOMObject # Import ArCOMObject
 import serial
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+from pathlib import Path
+curr_dir = Path(os.getcwd())
+sys.path.append(str(curr_dir))
+sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
+from ArCOM import ArCOMObject # Import ArCOMObject
 import nebPod
 try:
     import qdarktheme

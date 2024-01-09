@@ -2,15 +2,24 @@
 Use this script to test all the functions in the experiment controller and as a template for new experiment protocols
 NEB 2024-01-06
 '''
+
+import time
+import sys
+from pathlib import Path
+curr_dir = Path(os.getcwd())
+sys.path.append(str(curr_dir))
+sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
+from nebPod import Controller
+from pathlib import Path
+import pandas as pd
 try:
     from ArCOM import ArCOMObject 
 except:
     print('No ARCOM. Just for debugging')
-import time
-import nebPod
-from pathlib import Path
-import pandas as pd
 
+
+##  ------------------------- ## 
+# PARAMETERS # 
 PORT = 'COM11'
 
 # Time parameters in seconds
@@ -34,9 +43,6 @@ RUN_PATH = Path('D:/sglx_data')
 
 # All things to run go in here. Need to pass the nebPod controller object to main.
 def main(controller):
-
-    # Keeping our logs seperate for now. Maybe want to join them later.
-
     
     # Initialize with O2 - not logging here because isoflurane is a special experiment
     controller.present_gas('O2',1,verbose=True,log_enabled=False)
@@ -110,7 +116,7 @@ def main(controller):
 # Need to do this once the logging is figured out
 # log,f = format_events(events,stims,rec_start_time)
 if __name__=='__main__':
-    controller = nebPod.Controller(PORT)
+    controller = Controller(PORT)
     try:
         main(controller)
     except KeyboardInterrupt:

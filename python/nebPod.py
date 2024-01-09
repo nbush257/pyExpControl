@@ -1,6 +1,5 @@
 # TODO: Camera control
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
-# TODO: allow to run in non-sigmoidal mode
 
 from ArCOM import ArCOMObject 
 import serial
@@ -554,19 +553,16 @@ class Controller:
         msg = msg or 'Waiting'
         start_time = time.time()
         update_step=1
-        try:
-            if progress == 'bar':
-                from tqdm import tqdm
-                pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
-                pbar.set_description(msg)
-                while get_elapsed_time(start_time)<=wait_time_sec:
-                    time.sleep(update_step)
-                    pbar.update(update_step)
-                pbar.close()
-            else:
-                time.sleep(wait_time_sec)
-        except:
-            print('Progress ui not supported. Need to install TQDM')
+        if progress == 'bar':
+            from tqdm import tqdm
+            pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
+            pbar.set_description(msg)
+            while get_elapsed_time(start_time)<=wait_time_sec:
+                time.sleep(update_step)
+                pbar.update(update_step)
+            pbar.close()
+        else:
+            time.sleep(wait_time_sec)
         return('wait','event',{})
     
     @interval_timer
@@ -598,18 +594,10 @@ def sec2ms(val):
     val = float(val)
     return(int(val*1000))  
 
-
-
-
-
-
-
-
 def get_elapsed_time(start_time):
     curr_time = time.time()
     elapsed_time = curr_time-start_time
     return(elapsed_time)
-
 
 def plot_events(df):
     '''

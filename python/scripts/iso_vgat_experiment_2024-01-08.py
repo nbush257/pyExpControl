@@ -2,14 +2,20 @@
 Use this script to test all the functions in the experiment controller and as a template for new experiment protocols
 NEB 2024-01-06
 '''
+import time
+import sys
+from pathlib import Path
+import os
+curr_dir = Path(os.getcwd())
+sys.path.append(str(curr_dir))
+sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
+from nebPod import Controller
+from pathlib import Path
+import pandas as pd
 try:
     from ArCOM import ArCOMObject 
 except:
     print('No ARCOM. Just for debugging')
-import time
-import nebPod
-from pathlib import Path
-import pandas as pd
 
 PORT = 'COM11'
 
@@ -60,7 +66,6 @@ def main(controller):
             controller.phasic_stim('e','h',1,PHASIC_AMP,STIM_DURATION_EXP,verbose=True)
             controller.wait(INTERTRAIN_INTERVAL,progress=False)
 
-
         controller.play_ttls()
 
     # Stop recording
@@ -71,7 +76,7 @@ def main(controller):
 
 
 if __name__=='__main__':
-    controller = nebPod.Controller(PORT)
+    controller = Controller(PORT)
     try:
         main(controller)
     except KeyboardInterrupt:
