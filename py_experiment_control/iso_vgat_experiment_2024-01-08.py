@@ -14,17 +14,16 @@ import pandas as pd
 PORT = 'COM11'
 
 # Time parameters in seconds
-SETTLE_SEC = 0*60 
-EXPOSE_TIME = 0.1*60
-INTERTRAIN_INTERVAL = 1
-STIM_DURATION_INSP = 1
-STIM_DURATION_EXP = 1
-
+SETTLE_SEC = 15*60 
+EXPOSE_TIME = 15*60
+INTERTRAIN_INTERVAL = 45
+STIM_DURATION_INSP = 10
+STIM_DURATION_EXP = 2
+TAG_IPI = 3 
 # Other parameters
-PHASIC_AMP = 0.65
-N_STIMS = 1
+PHASIC_AMP = 0.7
+N_STIMS = 5
 N_TAG = 75
-TAG_IPI = 3 # (s)
 doses = [2.5,2,1.5,1]
 
 # Where to save the log data
@@ -37,7 +36,6 @@ def main(controller):
 
     # Initialize with O2 - not logging here because isoflurane is a special experiment
     controller.present_gas('O2',1,log_enabled=False,progress=False)
-    # gas_log.append(controller.present_gas('O2',1,verbose=True))
     print(f'Set ISO to {doses[0]:.2f}%')
     
     # Let the probe settle

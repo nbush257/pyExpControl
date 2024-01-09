@@ -67,25 +67,25 @@ def main(controller):
     controller.play_ttls()
     controller.play_synch()
 
-    # # Test phasic stims
-    # for ii in range(N_STIMS):
-    #     controller.phasic_stim('i','h',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
-    # for ii in range(N_STIMS):
-    #     controller.phasic_stim('e','h',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
+    # Test phasic stims
+    for ii in range(N_STIMS):
+        controller.phasic_stim('i','h',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
+    for ii in range(N_STIMS):
+        controller.phasic_stim('e','h',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
 
-    # for ii in range(N_STIMS):
-    #     controller.phasic_stim('i','p',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
-    # for ii in range(N_STIMS):
-    #     controller.phasic_stim('e','p',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
+    for ii in range(N_STIMS):
+        controller.phasic_stim('i','p',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
+    for ii in range(N_STIMS):
+        controller.phasic_stim('e','p',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=2,pulse_dur_sec=0.010,verbose=True)
 
-    # for ii in range(N_STIMS):
-    #     controller.phasic_stim('i','t',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True)
-    # for ii in range(N_STIMS):
-    #     controller.phasic_stim('e','t',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True)
+    for ii in range(N_STIMS):
+        controller.phasic_stim('i','t',1,BASE_AMP,STIM_DURATION_INSP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True)
+    for ii in range(N_STIMS):
+        controller.phasic_stim('e','t',1,BASE_AMP,STIM_DURATION_EXP,INTERTRAIN_INTERVAL,freq=20,pulse_dur_sec=0.010,verbose=True)
 
-    # # Test tagging
-    # controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI)
-    # controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI,pulse_dur_sec=0.02)
+    # Test tagging
+    controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI)
+    controller.run_tagging(n=N_TAG,verbose=True,ipi_sec=TAG_IPI,pulse_dur_sec=0.02)
     
 
     # Test Pulse
