@@ -14,7 +14,7 @@ python nebPod-gui.py
 
 #### Usage for script:
 ```
-cd /path/to/nebPod/py_experiment_control
+cd /path/to/nebPod/python
 python scripts/<your_script.py> 
 ```
 Some example scripts are included
