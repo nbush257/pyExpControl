@@ -5,6 +5,7 @@
 #include <Cobalt.h>
 #include <Tbox.h>
 ArCOM pyControl(SerialUSB);
+ArCOM cameraPulser(Serial2);
 Cobalt cobalt;
 Tbox tbox;
 
@@ -13,6 +14,7 @@ int valves[numValves] = {0, 1, 2, 3, 4};  // Pins that the valves are on
 
 void setup() {
   SerialUSB.begin(115200);
+  Serial2.begin(115200);
   // Flush any serial data in the buffer
   while (pyControl.available()) {pyControl.readByte();}
   // Initialize valve pins as OUTPUT
@@ -136,10 +138,12 @@ void processCommandR() {
   char subcommand = pyControl.readChar();
   switch (subcommand) {
     case 'b':
-      tbox.start_recording();
+      cameraPulser.writeChar('b');
+      cameraPulser.writeInt8(120);
       break;
     case 'e':
-      tbox.stop_recording();
+      cameraPulser.writeChar('e');
+      cameraPulser.writeInt8(120);
       break;
 }
 }
