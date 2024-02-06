@@ -2,7 +2,7 @@
 #TODO: add connection, port choosing, reconnection button
 #TODO: Run laser while pressed button. Mostly implemetned, just need to add the button and callback
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator
 from PyQt5.QtCore import Qt
 import time
@@ -20,7 +20,7 @@ try:
     HAS_STYLING = True
 except:
     HAS_STYLING = False
-
+        
 PORT = 'COM11'
 class ArduinoController(QWidget):
     def __init__(self):
@@ -280,6 +280,13 @@ class ArduinoController(QWidget):
         auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
         auto_calibrate_button.setStyleSheet("background-color: #001502")
 
+        max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
+        max_milliwatt_lineedit = QLineEdit()
+        max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
+        max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0,1000.0,1))
+        max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
+
+
         start_record_button = QPushButton("Start record", self)
         start_record_button.clicked.connect(lambda: self.start_record())
         start_record_button.setStyleSheet("background-color: #000000")
@@ -294,6 +301,8 @@ class ArduinoController(QWidget):
         actions_layout.addWidget(play_sync_button, 0, 3)
         actions_layout.addWidget(calibrate_button, 2, 0)
         actions_layout.addWidget(auto_calibrate_button, 2, 1)
+        actions_layout.addWidget(max_milliwatt_label,2,2)
+        actions_layout.addWidget(max_milliwatt_lineedit,2,3)
         actions_layout.addWidget(start_record_button, 4, 0)
         actions_layout.addWidget(stop_record_button, 4, 1)
 
@@ -423,6 +432,12 @@ class ArduinoController(QWidget):
     def update_train_pulse_dur(self,value):
         try:
             self.train_pulse_dur = float(value)/1000.0
+        except:
+            pass
+
+    def update_max_milliwattage(self,value):
+        try:
+            self.controller.set_max_milliwattage(value)
         except:
             pass
 

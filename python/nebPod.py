@@ -352,7 +352,14 @@ class Controller:
             plt.show()
 
         return(amps_to_test,powers)
+    
 
+    def set_max_milliwattage(self,val):
+        '''
+        Set the range for calibrating. This value is read out from the thorlabs light 
+        meter and converts the voltage output from thorlabs to milliwatts
+        '''
+        self.MAX_MILLIWATTAGE = val
 
     def turn_on_laser(self,amp,verbose=False):
         print(f'Turning on laser at amp: {amp}') if verbose else None
