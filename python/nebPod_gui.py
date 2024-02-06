@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from pathlib import Path
+import datetime
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
@@ -516,10 +517,13 @@ class ArduinoController(QWidget):
         self.controller.stop_camera_trig(verbose=True)
 
     def start_record(self):
-        self.controller.start_recording()
+        self.controller.log = []
+        self.controller.start_recording(silent=True)
 
     def stop_record(self):
-        self.controller.stop_recording(reset_to_O2=False)
+        self.controller.stop_recording(reset_to_O2=False,silent=True)
+        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.controller.save_log(path = Path(r'D:/'), filename=f'log_{now}.tsv')
 
     # Shutdown
     def closeEvent(self, event):
