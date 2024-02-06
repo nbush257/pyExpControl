@@ -463,17 +463,24 @@ class Controller:
     @logger
     @event_timer
     def start_camera_trig(self,fps=120,verbose=False):
-        #TODO: make a user determined framerate
-        # print(f'Starting camera at {fps}') if verbose else None
-        pass
-        # return('start_camera','event',{'fps':fps})
+        self.serial_port.serialObject.write('a'.encode('utf-8')) # Auxiliary
+        self.serial_port.serialObject.write('v'.encode('utf-8')) # Video 
+        self.serial_port.serialObject.write('b'.encode('utf-8')) # begin
+        self.serial_port.write(int(fps),'uint8')
+        print(f'Start camera trigger at {fps}fps') if verbose else None
+        
+        return('start_camera','event',{'fps':fps})
     
     @logger
     @event_timer
-    def stop_camera_trig(self):
-        # print(f'Stopping camera') if verbose else None
-        pass
-        # return('stop_camera','event',{})
+    def stop_camera_trig(self,verbose=False):
+        self.serial_port.serialObject.write('a'.encode('utf-8')) # Auxiliary
+        self.serial_port.serialObject.write('v'.encode('utf-8')) # Video 
+        self.serial_port.serialObject.write('e'.encode('utf-8')) # begin
+        self.serial_port.write(int(0),'uint8')  
+        print(f'Stop camera') if verbose else None
+
+        return('stop_camera','event',{})
 
     def block_until_read(self,verbose=False):
         reply = []

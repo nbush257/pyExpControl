@@ -260,8 +260,11 @@ class ArduinoController(QWidget):
         actions_layout.setAlignment(Qt.AlignTop)
 
         # Create action buttons
-        start_camera_button = QPushButton("Start Camera", self)
+        start_camera_button = QPushButton("Start Camera (120fps)", self)
         start_camera_button.clicked.connect(self.start_camera_trig)
+
+        stop_camera_button = QPushButton("Stop Camera", self)
+        stop_camera_button.clicked.connect(self.stop_camera_trig)
 
         play_tone_button = QPushButton("Play Tone", self)
         play_tone_button.clicked.connect(self.play_tone)
@@ -286,8 +289,9 @@ class ArduinoController(QWidget):
         stop_record_button.setStyleSheet("background-color: #000000")
 
         actions_layout.addWidget(start_camera_button, 0, 0)
-        actions_layout.addWidget(play_tone_button, 0, 1)
-        actions_layout.addWidget(play_sync_button, 0, 2)
+        actions_layout.addWidget(stop_camera_button, 0, 1)
+        actions_layout.addWidget(play_tone_button, 0, 2)
+        actions_layout.addWidget(play_sync_button, 0, 3)
         actions_layout.addWidget(calibrate_button, 2, 0)
         actions_layout.addWidget(auto_calibrate_button, 2, 1)
         actions_layout.addWidget(start_record_button, 4, 0)
@@ -491,8 +495,10 @@ class ArduinoController(QWidget):
         print(f'Laser amplitude set to: {self.laser_amp:.2f}v')
     
     def start_camera_trig(self):
-        self.controller.start_camera_trig()
-        print('Running camera trigger')
+        self.controller.start_camera_trig(verbose=True)
+
+    def stop_camera_trig(self):
+        self.controller.stop_camera_trig(verbose=True)
 
     def start_record(self):
         self.controller.start_recording()

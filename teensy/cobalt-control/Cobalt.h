@@ -31,7 +31,7 @@ class Cobalt
     int DAC_RESOLUTION=12;
     float DAC_RANGE=pow(2.0,float(DAC_RESOLUTION))-1;
     float V_REF=3.3;
-    float NULL_VOLTAGE=0.4;
+    float NULL_VOLTAGE=0.3;
     float BASE_VAL = map(NULL_VOLTAGE,0,1,0,DAC_RANGE/V_REF);
     float SIGM_RISETIME=2;
   private:

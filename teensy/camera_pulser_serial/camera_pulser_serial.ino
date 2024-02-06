@@ -9,8 +9,8 @@
 #include <ArCOM.h>
 ArCOM pyControl(Serial1);
 
-const int ledPin = 13;
-const int touchPin = 0;
+const int ledPin = 12;
+const int touchPin = 4;
 int val;
 bool record = false;
 int t1=micros();

@@ -21,6 +21,7 @@ void setup() {
   for (int i = 0; i < numValves; i++) {
     pinMode(valves[i], OUTPUT);
   }
+  
   cobalt.begin();
   tbox.begin();
   tbox.attachDefaults();
@@ -138,12 +139,10 @@ void processCommandR() {
   char subcommand = pyControl.readChar();
   switch (subcommand) {
     case 'b':
-      cameraPulser.writeChar('b');
-      cameraPulser.writeInt8(120);
+      tbox.start_recording();
       break;
     case 'e':
-      cameraPulser.writeChar('e');
-      cameraPulser.writeInt8(120);
+      tbox.stop_recording();
       break;
 }
 }
@@ -190,6 +189,23 @@ void processCommandA() {
     case 's':
       tbox.syncUSV();
       break;
+    case 'v':
+      processCameraCommands();
+      break;
+}
+}
+
+void processCameraCommands(){
+  char subcommand = pyControl.readChar();
+  int fps = pyControl.readUint8();;
+  switch (subcommand) {
+    case 'b':
+      cameraPulser.writeChar('b');
+      cameraPulser.writeUint8(fps);
+      break;
+    case 'e':
+      cameraPulser.writeChar('e');
+      cameraPulser.writeUint8(fps);
 }
 }
 
