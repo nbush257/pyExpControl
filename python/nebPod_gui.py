@@ -1,9 +1,8 @@
 #TODO: run protocols
 #TODO: add connection, port choosing, reconnection button
-#TODO: Run laser while pressed button. Mostly implemetned, just need to add the button and callback
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog
-from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox
+from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator, QIcon
 from PyQt5.QtCore import Qt
 import time
 import matplotlib.pyplot as plt
@@ -288,13 +287,16 @@ class ArduinoController(QWidget):
         max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
 
 
-        start_record_button = QPushButton("Start record", self)
-        start_record_button.clicked.connect(lambda: self.start_record())
-        start_record_button.setStyleSheet("background-color: #000000")
+    
+        self.record_button = QPushButton('Start Recording', self)
+        self.record_button.setCheckable(True)
+        self.record_button.clicked.connect(self.toggle_recording)
 
-        stop_record_button = QPushButton("Stop record", self)
-        stop_record_button.clicked.connect(lambda: self.stop_record())
-        stop_record_button.setStyleSheet("background-color: #000000")
+        log_label = QLabel('Type your note:')
+        self.log_lineedit = QLineEdit()
+        self.log_lineedit.setText('')
+        self.log_entry_button = QPushButton('Submit note to log')
+        self.log_entry_button.clicked.connect(self.submit_log)
 
         actions_layout.addWidget(start_camera_button, 0, 0)
         actions_layout.addWidget(stop_camera_button, 0, 1)
@@ -304,8 +306,10 @@ class ArduinoController(QWidget):
         actions_layout.addWidget(auto_calibrate_button, 2, 1)
         actions_layout.addWidget(max_milliwatt_label,2,2)
         actions_layout.addWidget(max_milliwatt_lineedit,2,3)
-        actions_layout.addWidget(start_record_button, 4, 0)
-        actions_layout.addWidget(stop_record_button, 4, 1)
+        actions_layout.addWidget(self.record_button, 3, 0)
+        actions_layout.addWidget(log_label,4,0)
+        actions_layout.addWidget(self.log_lineedit,4,1,1,2)
+        actions_layout.addWidget(self.log_entry_button,4,3)
 
         main_layout.addWidget(group_box_actions, 2, 2)
 
@@ -314,9 +318,14 @@ class ArduinoController(QWidget):
         self.setGeometry(100, 100, 800, 500)
         self.setWindowTitle("Nick's Fancy Experiment Controller (gooey)")
         self.show()
+    
+    def submit_log(self):
+        note = self.log_lineedit.text()
+        self.controller.make_log_entry(note,'event')
+        self.log_lineedit.setText('')
 
     def open_valve(self, button_number):
-        self.controller.open_valve(button_number)
+        self.controller.open_valve(button_number,log_style='gas')
         
     def end_hb(self):
         self.controller.end_hb()
@@ -515,15 +524,25 @@ class ArduinoController(QWidget):
 
     def stop_camera_trig(self):
         self.controller.stop_camera_trig(verbose=True)
+    
+    def toggle_recording(self):
+        if self.record_button.isChecked():
+            self.record_button.setText('Stop Recording')
+            self.start_record()
+        else:
+            self.record_button.setText('Start recording')
+            self.stop_record()
 
     def start_record(self):
         self.controller.log = []
         self.controller.start_recording(silent=True)
 
     def stop_record(self):
-        self.controller.stop_recording(reset_to_O2=False,silent=True)
+        print('stopping recording...')
+        self.controller.stop_recording(reset_to_O2=False,silent=True,verbose=False)
         now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.controller.save_log(path = Path(r'D:/'), filename=f'log_{now}.tsv')
+
 
     # Shutdown
     def closeEvent(self, event):

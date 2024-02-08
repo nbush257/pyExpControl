@@ -85,13 +85,15 @@ class Controller:
     
     @logger
     @event_timer
-    def open_valve(self,valve_number):
+    def open_valve(self,valve_number,log_style=None):
         start_time = time.time()
         self.serial_port.serialObject.write('v'.encode('utf-8'))
         self.serial_port.write(valve_number,'uint8')
         self.block_until_read()
-
-        label=f'open_valve_{int(valve_number)}'
+        if log_style=='gas':
+            label=f'{self.gas_map[valve_number]}'
+        else:
+            label=f'open_valve_{int(valve_number)}'
         return(label,'gas',{})
     
     @logger
