@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
+import datetime
 
 
 def interval_timer(func):
@@ -23,8 +24,7 @@ def interval_timer(func):
         start_time = time.time()
         label,category,params = func(*args, **kwargs)
         end_time = time.time()
-        # This only allows functinos with three outputs
-        # MAKE THIS A DICT OUTPUT
+
         output = dict(
             label=label,
             category=category,
@@ -440,7 +440,7 @@ class Controller:
     
     @logger
     @event_timer
-    def start_recording(self,verbose=True,silent=False):
+    def start_recording(self,verbose=True,silent=True):
         self.play_alert() if not silent else None
         self.empty_read_buffer()
         self.rec_start_time = time.time()
@@ -452,7 +452,7 @@ class Controller:
 
     @logger
     @event_timer
-    def stop_recording(self,verbose=True,reset_to_O2=True,silent=False):
+    def stop_recording(self,verbose=True,reset_to_O2=False,silent=True):
         self.empty_read_buffer()
         self.serial_port.serialObject.write('r'.encode('utf-8'))
         self.serial_port.serialObject.write('e'.encode('utf-8'))
@@ -475,7 +475,6 @@ class Controller:
         self.serial_port.serialObject.write('b'.encode('utf-8')) # begin
         self.serial_port.write(int(fps),'uint8')
         print(f'Start camera trigger at {fps}fps') if verbose else None
-        
         return('start_camera','event',{'fps':fps})
     
     @logger
@@ -486,7 +485,6 @@ class Controller:
         self.serial_port.serialObject.write('e'.encode('utf-8')) # begin
         self.serial_port.write(int(0),'uint8')  
         print(f'Stop camera') if verbose else None
-
         return('stop_camera','event',{})
 
     def block_until_read(self,verbose=False):
@@ -508,7 +506,6 @@ class Controller:
         self.end_hb()
         # while self.serial_port.bytesAvailable()>0:
         #     self.serial_port.read(1,'byte')
-    
     
     def close(self):
         self.reset()
@@ -535,7 +532,8 @@ class Controller:
         Save log to a file
         '''
         path = path or Path(r'D:/sglx_data') 
-        filename = filename or 'all_event_log.tsv'
+        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        filename = filename or f'all_event_log_{now}.tsv'
         save_fn = path.joinpath(filename)
         log_df = pd.DataFrame(self.log)
         

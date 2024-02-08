@@ -438,7 +438,7 @@ class ArduinoController(QWidget):
 
     def update_max_milliwattage(self,value):
         try:
-            self.controller.set_max_milliwattage(value)
+            self.controller.set_max_milliwattage(float(value))
         except:
             pass
 
