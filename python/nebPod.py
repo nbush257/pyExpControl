@@ -203,7 +203,7 @@ class Controller:
 
     @logger
     @interval_timer
-    def run_tagging(self,n=75,pulse_dur_sec=0.010,amp=1.0,ipi_sec=3,verbose=True):
+    def run_tagging(self,n=75,pulse_dur_sec=0.050,amp=1.0,ipi_sec=3,verbose=True):
         '''
         n: number of tagging stims
         duration: duration of stimualtion (s)

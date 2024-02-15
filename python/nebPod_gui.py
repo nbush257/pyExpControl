@@ -1,7 +1,9 @@
 #TODO: run protocols
+#TODO: set save path from dialog
+#TODO: ask user about laser parameters when running autocalibrate
 #TODO: add connection, port choosing, reconnection button
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox,QComboBox
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator, QIcon
 from PyQt5.QtCore import Qt
 import time
@@ -10,6 +12,8 @@ import numpy as np
 import os
 from pathlib import Path
 import datetime
+import pandas as pd
+import json
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
@@ -42,6 +46,12 @@ class ArduinoController(QWidget):
         self.gas_map = self.controller.gas_map
         self.insp_phasic_duration = 10.0
         self.exp_phasic_duration = 4.0
+        self.save_path = Path('D:/')
+        self.implemented_wavelengths = ['473nm','635nm','undefined']
+        self.powermeter_lims = {'473nm':310.,'635nm':140.}
+        self.implemented_fibers = ['200um doric 0.22NA','600um doric 0.22NA','undefined']
+        self.fiber=self.implemented_fibers[0]
+        self.light_wavelength=self.implemented_wavelengths[0]
 
         self.end_hb()
         self.open_valve(0)
@@ -243,12 +253,17 @@ class ArduinoController(QWidget):
         exp_train = QPushButton(f"Run expiratory phasic trains\n({self.exp_phasic_duration:.0f}s of stimulations)", self)
         exp_train.clicked.connect(self.run_exp_phasic_train)
 
+        
+        tagging_button = QPushButton(f"Run tagging (75 pulses, 3s IPI, 50ms pulse full amp)", self)
+        tagging_button.clicked.connect(self.run_tagging)
+
         phasics_layout.addWidget(insp_phasic_button, 0, 0)
         phasics_layout.addWidget(insp_single_pulse, 1, 0)
         phasics_layout.addWidget(insp_train, 2, 0)
         phasics_layout.addWidget(exp_phasic_button, 0, 1)
         phasics_layout.addWidget(exp_single_pulse, 1, 1)
         phasics_layout.addWidget(exp_train, 2, 1)
+        phasics_layout.addWidget(tagging_button, 3, 0)
 
         main_layout.addWidget(group_box_phasics, 1, 2)
 
@@ -281,11 +296,20 @@ class ArduinoController(QWidget):
         auto_calibrate_button.setStyleSheet("background-color: #001502")
 
         max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
-        max_milliwatt_lineedit = QLineEdit()
-        max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
-        max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0,1000.0,1))
-        max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
+        self.max_milliwatt_lineedit = QLineEdit()
+        self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
+        self.max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0,1000.0,1))
+        self.max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
 
+        wavelength_selector = QComboBox(self)
+        wavelength_selector.addItems(self.implemented_wavelengths)
+        wavelength_selector.setCurrentIndex(0)
+        wavelength_selector.activated.connect(self.select_wavelength)
+
+        fiber_selector = QComboBox(self)
+        fiber_selector.addItems(self.implemented_fibers)
+        fiber_selector.setCurrentIndex(0)
+        fiber_selector.activated.connect(self.select_fiber)
 
     
         self.record_button = QPushButton('Start Recording', self)
@@ -302,10 +326,14 @@ class ArduinoController(QWidget):
         actions_layout.addWidget(stop_camera_button, 0, 1)
         actions_layout.addWidget(play_tone_button, 0, 2)
         actions_layout.addWidget(play_sync_button, 0, 3)
-        actions_layout.addWidget(calibrate_button, 2, 0)
-        actions_layout.addWidget(auto_calibrate_button, 2, 1)
+        actions_layout.addWidget(wavelength_selector, 2, 0)
+        actions_layout.addWidget(fiber_selector,2,1)
+
         actions_layout.addWidget(max_milliwatt_label,2,2)
-        actions_layout.addWidget(max_milliwatt_lineedit,2,3)
+        actions_layout.addWidget(self.max_milliwatt_lineedit,2,3)
+        actions_layout.addWidget(auto_calibrate_button, 2, 4)
+
+
         actions_layout.addWidget(self.record_button, 3, 0)
         actions_layout.addWidget(log_label,4,0)
         actions_layout.addWidget(self.log_lineedit,4,1,1,2)
@@ -404,6 +432,9 @@ class ArduinoController(QWidget):
                                     intertrain_interval_sec=0.,
                                     pulse_dur_sec=self.train_pulse_dur
                                     )
+    def run_tagging(self):
+        self.controller.run_tagging()
+
                 
     def play_tone(self):
         self.controller.play_tone(1000,0.5)
@@ -508,8 +539,31 @@ class ArduinoController(QWidget):
             time.sleep(sleep_time)
     
     def auto_calibrate_laser(self):
-        self.controller.auto_calibrate(plot=True)
-    
+        volts_supplied,powers = self.controller.auto_calibrate(plot=True)
+        data_out = {}
+        data_out['command_voltage'] = volts_supplied.tolist()
+        data_out['light_power'] = powers.tolist()
+        data_out['fiber'] = self.fiber
+        data_out['wavelength'] = self.light_wavelength
+        save_fn = self.save_path.joinpath('opto_calibration.json')
+        print(f'Saving calibration to {save_fn}')
+        with open(save_fn,'w') as fid:
+            json.dump(data_out, fid,indent=4)
+
+
+    def select_wavelength(self):
+        self.light_wavelength = self.sender().currentText()
+        try:
+            self.controller.MAX_MILLIWATTAGE = self.powermeter_lims[self.light_wavelength]
+        except:
+            print('Not changing photometer limits')
+        self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
+        print(f'Selecting {self.light_wavelength} wavelength')
+
+    def select_fiber(self):
+        self.fiber = self.sender().currentText()
+        print(f'Set fiber to: {self.fiber}')
+
     def laser_on(self):
         self.controller.turn_on_laser(self.laser_amp)
     
