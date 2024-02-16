@@ -1,6 +1,4 @@
 #TODO: run protocols
-#TODO: set save path from dialog
-#TODO: ask user about laser parameters when running autocalibrate
 #TODO: add connection, port choosing, reconnection button
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox,QComboBox
@@ -65,9 +63,9 @@ class ArduinoController(QWidget):
         # Create file input field and button spanning the width
         file_layout = QVBoxLayout()
         self.file_path_input = QLineEdit(self)
-        self.file_path_input.setPlaceholderText("Enter directory path...")
+        self.file_path_input.setPlaceholderText(str(self.save_path))
         self.file_path_input.setMinimumHeight(40)  # Set a larger height
-        browse_button = QPushButton("Browse Directory", self)
+        browse_button = QPushButton("Choose save path...", self)
         browse_button.clicked.connect(self.browse_directory)
 
         file_layout.addWidget(self.file_path_input)
@@ -287,9 +285,9 @@ class ArduinoController(QWidget):
         play_sync_button = QPushButton("Play Synchronize", self)
         play_sync_button.clicked.connect(self.synch_audio)
 
-        calibrate_button = QPushButton("Manual calibrate laser", self)
-        calibrate_button.clicked.connect(lambda: self.calibrate_laser())
-        calibrate_button.setStyleSheet("background-color: #801502")
+        # calibrate_button = QPushButton("Manual calibrate laser", self)
+        # calibrate_button.clicked.connect(lambda: self.calibrate_laser())
+        # calibrate_button.setStyleSheet("background-color: #801502")
 
         auto_calibrate_button = QPushButton("AUTO calibrate laser", self)
         auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
@@ -453,10 +451,11 @@ class ArduinoController(QWidget):
     def browse_directory(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        directory_path = QFileDialog.getExistingDirectory(self, "Select Directory", "", options=options)
+        directory_path = QFileDialog.getExistingDirectory(self, "Select Directory", "D:/", options=options)
         if directory_path:
             self.file_path_input.setText(directory_path)
-            print(f'Selected directory: {directory_path}')
+            self.save_path = Path(directory_path)
+            print(f'Selected save path: {directory_path}')
 
     def update_train_freq(self,value):
         try:
