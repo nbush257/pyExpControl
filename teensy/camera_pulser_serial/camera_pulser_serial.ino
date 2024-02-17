@@ -12,7 +12,7 @@ ArCOM pyControl(Serial1);
 
 const int ledPin = 12;
 const int statusPin = 13;
-const int interruptPin = 4;
+const int interruptPin = 14;
 Bounce2::Button button = Bounce2::Button();
 bool record = false;
 int t1=micros();
@@ -28,9 +28,10 @@ void setup() {
   pinMode(statusPin,OUTPUT);
   digitalWrite(statusPin,ledState);  
 
-  button.attach(interruptPin,INPUT_PULLDOWN);
+
+  button.attach(interruptPin,INPUT_PULLUP);
   button.interval(5);
-  button.setPressedState(HIGH); 
+  button.setPressedState(LOW); 
 
   
   Serial1.begin(115200);
