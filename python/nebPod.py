@@ -366,7 +366,7 @@ class Controller:
         plot: If true, plot the relationship between the voltage command and the output.
         output: Units of output requested. Can be ['mw','v']. Otherwise it returns the raw read from the arduino
         '''
-        amp_range = amp_range or [0.5,1.01]
+        amp_range = amp_range or [0,1.01]
         amps_to_test = np.arange(amp_range[0],amp_range[1],amp_res)
         # Add a zero to get background voltage
         amps_to_test = np.concatenate([[0],amps_to_test])
@@ -378,8 +378,8 @@ class Controller:
             power_mw = self.poll_laser_power(amp,verbose=verbose,output=output)
             powers[ii] = power_mw
 
-        # # Subtract off the first reading (NB: commenting out for now.)
-        # powers -=powers[0]
+        # Subtract off the first reading (NB: commenting out for now.)
+        powers -=powers[0]
         if plot:
             f = plt.figure()
             plt.plot(amps_to_test[1:],powers[1:],'ko-')
@@ -707,6 +707,7 @@ class Controller:
         '''
         Use this to initialize or modify the cobalt object in the arduino. Particularly useful if you want to switch between sigmoidal andz
         '''
+        #TODO: ability to modify null voltage
         self.serial_port.serialObject.write('c'.encode('utf-8'))
         self.serial_port.serialObject.write('m'.encode('utf-8'))
         self.serial_port.serialObject.write(mode.encode('utf-8'))
