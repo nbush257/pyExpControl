@@ -1,6 +1,6 @@
 # nebPod
 This is a set of python and arduino code to control the NPX rig using serial communication. 
-It is influenced by the Bpod control from Carlos Brody's lab and uses the ArCOM package from Sanworks
+It is influenced by the Bpod control from Kepecs and Brody labs and uses the ArCOM package from Sanworks
 
 You will need to include the "cobalt-control" and "Tbox" libraries (.cpp, .h) in your arduino framework so they can be referenced in the firmware sketch.
 
