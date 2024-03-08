@@ -91,6 +91,7 @@ class Controller:
         self.rec_start_time = None 
         self.rec_stop_time = None
         self.gate_dest = None
+        self.gate_dest_default = 'D:/sglx_data'
         self.log_filename = None
         self.init_cobalt() # Initialize the laser controller object
     
@@ -678,18 +679,23 @@ class Controller:
         msg: custom message to print in the command line
         progress can be: 'bar' (would be fun to have a animation)
         '''
-        msg = msg or 'Waiting'
-        start_time = time.time()
-        update_step=1
-        if progress == 'bar':
-            pbar = tqdm(total=int(wait_time_sec),bar_format='{desc}: |{bar}{r_bar}')
-            pbar.set_description(msg)
-            while get_elapsed_time(start_time)<=wait_time_sec:
-                time.sleep(update_step)
-                pbar.update(update_step)
-            pbar.close()
-        else:
-            time.sleep(wait_time_sec)
+        try:
+            msg = msg or 'Waiting'
+            start_time = time.time()
+            update_step=1
+            if progress == 'bar':
+                pbar = tqdm(total=int(wait_time_sec),bar_format='{desc} Ctrl-c to skip. |{bar}{r_bar}')
+                pbar.set_description(msg)
+                while get_elapsed_time(start_time)<=wait_time_sec:
+                    time.sleep(update_step)
+                    pbar.update(update_step)
+                pbar.close()
+            else:
+                time.sleep(wait_time_sec)
+        except KeyboardInterrupt:
+            print('"Wait interrupted!')
+            time.sleep(1)
+
         return('wait','event',{})
     
     @interval_timer
@@ -740,7 +746,9 @@ class Controller:
     
     
     def get_logname_from_user(self,verbose=True):
-        self.gate_dest = input('Where is the gate being saved (e.g., D:/sglx_data): ')
+        self.gate_dest = input(f'Where is the gate being saved? (Default to {self.gate_dest_default})): ')
+        if self.gate_dest=='':
+            self.gate_dest = self.gate_dest_default
         while True:
             self.gate_dest = Path(self.gate_dest)
             if self.gate_dest.exists():
@@ -749,8 +757,22 @@ class Controller:
                 self.gate_dest = input('That folder does not exist.Try again... ')
 
         runname = input('what is the runname (from spikeglx)?: ')
-        gate_num = input('what is the gate number (0,1,...)?: ')
-        self.log_filename = f'{runname}_g{gate_num}.tsv'
+        while True:
+            try:
+                gate_num = int(input('what is the gate number (0,1,...)? Must be a number: '))
+                break
+            except ValueError:
+                print('Invalid input. Input must be a number')
+
+        while True:
+            try:
+                trigger_num = int(input('what is the trigger number (0,1,...)? Must be a number: '))
+                break
+            except ValueError:
+                print('Invalid input. Input must be a number')
+    
+    
+        self.log_filename = f'_cibbrig_.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.log.tsv'
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
 
