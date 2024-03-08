@@ -90,6 +90,8 @@ class Controller:
         self.log = [] # Initialize the log list
         self.rec_start_time = None 
         self.rec_stop_time = None
+        self.gate_dest = None
+        self.log_filename = None
         self.init_cobalt() # Initialize the laser controller object
     
     @logger
@@ -290,7 +292,7 @@ class Controller:
             pulse_dur_ms = sec2ms(pulse_duration_sec)
             freq = None
         if verbose:
-            print(f'Running opto phasic stims:{phase_map[phase]},{mode_map[mode]}')
+            print(f'Running opto phasic stims:{phase_map[phase]},{mode_map[mode]},{freq=},{pulse_duration_sec=}')
         
         
         if n==1:
@@ -633,9 +635,9 @@ class Controller:
         filename: filename to save to. Defaults to "all_event_log_<YYYY-MM-DD-HH-mm-ss>.tsv
         make_relative: subtracts the recording onset time.
         '''
-        path = path or Path(r'D:/sglx_data') 
+        path = self.gate_dest or path or Path(r'D:/sglx_data') 
         now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        filename = filename or f'all_event_log_{now}.tsv'
+        filename = self.log_filename or filename or f'all_event_log_{now}.tsv'
         save_fn = path.joinpath(filename)
         log_df = pd.DataFrame(self.log)
         
@@ -735,6 +737,23 @@ class Controller:
 
         for ii,cat in enumerate(categories):    
             plt.text(plt.gca().get_xlim()[0],ii,cat)
+    
+    
+    def get_logname_from_user(self,verbose=True):
+        self.gate_dest = input('Where is the gate being saved (e.g., D:/sglx_data): ')
+        while True:
+            self.gate_dest = Path(self.gate_dest)
+            if self.gate_dest.exists():
+                break
+            else:
+                self.gate_dest = input('That folder does not exist.Try again... ')
+
+        runname = input('what is the runname (from spikeglx)?: ')
+        gate_num = input('what is the gate number (0,1,...)?: ')
+        self.log_filename = f'{runname}_g{gate_num}.tsv'
+        print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+
+
 
 
         
