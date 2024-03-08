@@ -776,6 +776,21 @@ class Controller:
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
 
+    def get_laser_amp_from_user(self):
+        while True:
+            val = input('Set the laser poewr (0-1)')
+            try:
+                val = float(val)
+                if val<0 or val>1:
+                    print('Invalid input. Must be between 0 and 1')
+                else:
+                    break
+            except ValueError:
+                print('Invalid input. Must be a number')
+        self.laser_command_amp = val
+        print(f'Laser amplitude set to {self.laser_command_amp}v')
+    
+        
 
 
         
