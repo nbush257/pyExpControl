@@ -1,6 +1,7 @@
 #TODO: run protocols
 #TODO: add connection, port choosing, reconnection button
 import sys
+import subprocess
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox,QComboBox
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator, QIcon
 from PyQt5.QtCore import Qt
@@ -45,6 +46,7 @@ class ArduinoController(QWidget):
         self.insp_phasic_duration = 10.0
         self.exp_phasic_duration = 4.0
         self.save_path = Path('D:/')
+        self.script_filename = None
         self.implemented_wavelengths = ['473nm','635nm','undefined']
         self.powermeter_lims = {'473nm':310.,'635nm':140.}
         self.implemented_fibers = ['200um doric 0.22NA','600um doric 0.22NA','undefined']
@@ -68,9 +70,26 @@ class ArduinoController(QWidget):
         browse_button = QPushButton("Choose save path...", self)
         browse_button.clicked.connect(self.browse_directory)
 
+        script_dialog = QVBoxLayout()
+        self.script_path_input = QLineEdit(self)
+        browse_script_button = QPushButton("Choose script to run", self)
+        browse_script_button.clicked.connect(self.browse_script)
+
+
         file_layout.addWidget(self.file_path_input)
         file_layout.addWidget(browse_button)
-        main_layout.addLayout(file_layout, 0, 0, 1, 3)
+        script_dialog.addWidget(self.script_path_input)
+        script_dialog.addWidget(browse_script_button)
+
+        script_run = QVBoxLayout()
+        self.script_run_button = QPushButton('RUN SCRIPT',self)
+        self.script_run_button.setStyleSheet('background-color: #4496c2')
+        self.script_run_button.clicked.connect(self.run_script)
+        script_run.addWidget(self.script_run_button)
+
+        main_layout.addLayout(file_layout, 0, 0)
+        main_layout.addLayout(script_dialog, 0, 1)
+        main_layout.addLayout(script_run, 0, 2)
 
         # Create group box for toggle buttons (Valves)
         group_box_toggle = QGroupBox("Manual Valve Control", self)
@@ -291,7 +310,6 @@ class ArduinoController(QWidget):
 
         auto_calibrate_button = QPushButton("AUTO calibrate laser", self)
         auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
-        auto_calibrate_button.setStyleSheet("background-color: #001502")
 
         max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
         self.max_milliwatt_lineedit = QLineEdit()
@@ -312,6 +330,7 @@ class ArduinoController(QWidget):
     
         self.record_button = QPushButton('Start Recording', self)
         self.record_button.setCheckable(True)
+        self.record_button.setStyleSheet("background-color: #111111")
         self.record_button.clicked.connect(self.toggle_recording)
 
         log_label = QLabel('Type your note:')
@@ -457,6 +476,29 @@ class ArduinoController(QWidget):
             self.save_path = Path(directory_path)
             print(f'Selected save path: {directory_path}')
 
+    def browse_script(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_dialog = QFileDialog()
+        file_dialog.setOptions(options)
+        file_dialog.setDirectory('D:/pyExpControl/python/scripts')
+        file_dialog.setFileMode(QFileDialog.AnyFile)
+        file_dialog.setNameFilter('*.py')
+        if file_dialog.exec_() == QFileDialog.Accepted:
+            file_name = file_dialog.selectedFiles()[0]
+            self.script_path_input.setText(file_name)
+            self.script_filename = Path(file_name)
+            print(f'Selected script: {file_name}')
+
+    def run_script(self):
+        command = ['python',self.script_filename]
+        self.script_run_button.setStyleSheet('background-color: #111111')
+        self.setStyleSheet('background-color: #AA1111')
+        print('Closing serial port')
+        self.controller.serial_port.close()
+        QApplication.processEvents()
+        subprocess.run(command)
+
     def update_train_freq(self,value):
         try:
             self.train_freq = float(value)
@@ -582,8 +624,11 @@ class ArduinoController(QWidget):
         if self.record_button.isChecked():
             self.record_button.setText('Stop Recording')
             self.start_record()
+            self.record_button.setStyleSheet("background-color: #AA1111" )
+
         else:
             self.record_button.setText('Start recording')
+            self.record_button.setStyleSheet("background-color: #111111" )
             self.stop_record()
 
     def start_record(self):
