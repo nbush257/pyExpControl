@@ -780,7 +780,7 @@ class Controller:
 
     def get_laser_amp_from_user(self):
         while True:
-            val = input('Set the laser poewr (0-1)')
+            val = input('Set the laser power (0-1)')
             try:
                 val = float(val)
                 if val<0 or val>1:

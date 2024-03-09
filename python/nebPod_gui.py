@@ -1,4 +1,3 @@
-#TODO: run protocols
 #TODO: add connection, port choosing, reconnection button
 import sys
 import subprocess
@@ -36,7 +35,7 @@ class ArduinoController(QWidget):
         except:
             self.IS_CONNECTED = False
             print(f"No Serial port found on {PORT}. GUI will show up but not do anything")
-
+        self.port = PORT
         self.laser_amp = 0.65
         self.null_voltage = 0.5
         self.cobalt_mode='S'
@@ -55,7 +54,7 @@ class ArduinoController(QWidget):
         self.fiber=self.implemented_fibers[0]
         self.light_wavelength=self.implemented_wavelengths[0]
 
-        self.controller.init_cobalt(mode='S',null_voltage=self.null_voltage)
+        self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
         self.end_hb()
         self.open_valve(0)
         self.init_ui()
@@ -93,6 +92,22 @@ class ArduinoController(QWidget):
         main_layout.addLayout(file_layout, 0, 0)
         main_layout.addLayout(script_dialog, 0, 1)
         main_layout.addLayout(script_run, 0, 2)
+        # Create box for connecting:
+        connect_box = QGridLayout()
+        port_label = QLabel('COM Port:')
+        port_lineedit = QLineEdit(self)
+        port_lineedit.setPlaceholderText(PORT)
+        port_connect_button = QPushButton('Connect COM')
+        port_connect_button.clicked.connect(self.connect)
+
+        port_disconnect_button = QPushButton('Disconnect COM')
+        port_disconnect_button.clicked.connect(self.disconnect)
+        connect_box.addWidget(port_label,0,0)
+        connect_box.addWidget(port_lineedit,0,1)
+        connect_box.addWidget(port_connect_button,1,0,1,2)
+        connect_box.addWidget(port_disconnect_button,2,0,1,2)
+
+        main_layout.addLayout(connect_box,0,3)
 
         # Create group box for toggle buttons (Valves)
         group_box_toggle = QGroupBox("Manual Valve Control", self)
@@ -407,6 +422,22 @@ class ArduinoController(QWidget):
         self.setWindowTitle("Nick's Fancy Experiment Controller (gooey)")
         self.show()
     
+
+    def connect(self):
+        if not self.IS_CONNECTED:
+            self.controller = nebPod.Controller(self.port)
+            self.IS_CONNECTED=True
+        else:
+            print('Already connected')
+    
+    def disconnect(self):
+        if self.IS_CONNECTED:
+            self.controller.serial_port.close()
+            self.IS_CONNECTED=False
+            print('Disconnected! Warning, GUI will crash if try to use')
+        else:
+            print('Not connected to any COM port')
+
     def submit_log(self):
         note = self.log_lineedit.text()
         self.controller.make_log_entry(note,'event')
@@ -534,13 +565,16 @@ class ArduinoController(QWidget):
             print(f'Selected script: {file_name}')
 
     def run_script(self):
-        command = ['python',self.script_filename]
+        command = ['python',str(self.script_filename)]
         self.script_run_button.setStyleSheet('background-color: #111111')
         self.setStyleSheet('background-color: #AA1111')
         print('Closing serial port')
         self.controller.serial_port.close()
+        self.IS_CONNECTED = False
         QApplication.processEvents()
-        subprocess.run(command)
+        subprocess.Popen(' '.join(command))
+        QApplication.processEvents()
+        # subprocess.run(command)
 
     def update_train_freq(self,value):
         try:
@@ -709,6 +743,7 @@ class ArduinoController(QWidget):
         self.controller.serial_port.serialObject.read_all()
         if self.IS_CONNECTED:
             self.controller.serial_port.close()
+            self.IS_CONNECTED = False
         event.accept()
 
 if __name__ == '__main__':
