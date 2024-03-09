@@ -83,9 +83,11 @@ void processCommandC(){
       char mode = pyControl.readChar();
       
       int power_meter_pin = pyControl.readUint8();    
+      int null_voltage_uint8 = pyControl.readUint8();    
+      float null_voltage = static_cast<float>(null_voltage_uint8) / 255;
       cobalt.MODE = mode;
-  
       cobalt.POWER_METER_PIN = power_meter_pin;
+      cobalt.NULL_VOLTAGE = null_voltage;
       cobalt.begin();
 
 

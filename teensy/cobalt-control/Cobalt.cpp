@@ -10,9 +10,11 @@ void Cobalt::begin() {
   pinMode(LASER_PIN,OUTPUT);
   pinMode(AIN_PIN,INPUT);
   pinMode(POT_PIN,INPUT);
+  BASE_VAL = map(NULL_VOLTAGE,0,1,0,DAC_RANGE/V_REF);
   if (MODE =='S'){analogWrite(LASER_PIN,BASE_VAL);}
   if (MODE =='B'){analogWrite(LASER_PIN,0);}
 }
+
 
 void Cobalt::_turn_on_binary(float amp){
   // Turn on the light instantaneously at a given amplitude. Scaled between 0 and 1 V

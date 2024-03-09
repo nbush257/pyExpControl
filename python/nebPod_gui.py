@@ -2,7 +2,7 @@
 #TODO: add connection, port choosing, reconnection button
 import sys
 import subprocess
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox,QComboBox
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox,QComboBox,QRadioButton,QHBoxLayout,QFrame
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator, QIcon
 from PyQt5.QtCore import Qt
 import time
@@ -38,6 +38,8 @@ class ArduinoController(QWidget):
             print(f"No Serial port found on {PORT}. GUI will show up but not do anything")
 
         self.laser_amp = 0.65
+        self.null_voltage = 0.5
+        self.cobalt_mode='S'
         self.hb_time = 0.5
         self.train_freq = 10.0
         self.train_duration  = 1.0
@@ -53,6 +55,7 @@ class ArduinoController(QWidget):
         self.fiber=self.implemented_fibers[0]
         self.light_wavelength=self.implemented_wavelengths[0]
 
+        self.controller.init_cobalt(mode='S',null_voltage=self.null_voltage)
         self.end_hb()
         self.open_valve(0)
         self.init_ui()
@@ -219,6 +222,42 @@ class ArduinoController(QWidget):
         viz_train_button = QPushButton('Visualize custom train',self)
         viz_train_button.clicked.connect(self.viz_custom_train)
 
+        # Create a horizontal line
+        h_line = QFrame()
+        h_line.setFrameShape(QFrame.HLine)
+        h_line.setFrameShadow(QFrame.Sunken)
+
+        # Set up a vertical layout
+        line_box = QVBoxLayout()
+        line_box.addWidget(h_line)
+
+        # Set the layout for the main window
+
+        # Change null voltage
+        self.null_voltage_label = QLabel('Null voltage (0-1v)')
+        self.null_voltage_linedit = QLineEdit()
+        self.null_voltage_linedit.setText(f'{self.null_voltage}')
+        self.null_voltage_linedit.setValidator(QDoubleValidator(0.0,1.0,2))
+        self.null_voltage_linedit.textChanged.connect(self.update_null_voltage)
+        
+
+        #Change cobalt mode:
+        mode_label = QLabel('Select laser mode:')
+        self.binary_radio = QRadioButton('Binary')
+        self.sigmoidal_radio = QRadioButton('Sigmoidal')
+        self.sigmoidal_radio.setChecked(True)
+
+        # Create a button group to make the radio buttons mutually exclusive
+        self.button_group = QButtonGroup()
+        self.button_group.addButton(self.binary_radio)
+        self.button_group.addButton(self.sigmoidal_radio)
+        self.binary_radio.toggled.connect(self.update_cobalt_mode)
+        self.sigmoidal_radio.toggled.connect(self.update_cobalt_mode)
+        mode_box = QHBoxLayout()
+        mode_box.addWidget(mode_label)
+        mode_box.addWidget(self.binary_radio)
+        mode_box.addWidget(self.sigmoidal_radio)
+
 
         # Layout
         stim_params_layout.addWidget(train_freq_label, 1, 0)  
@@ -235,6 +274,10 @@ class ArduinoController(QWidget):
         
         stim_params_layout.addWidget(train_button, 5, 0)
         stim_params_layout.addWidget(viz_train_button, 5, 1)
+        stim_params_layout.addLayout(line_box,6,0,1,3)
+        stim_params_layout.addWidget(self.null_voltage_label,7,0)
+        stim_params_layout.addWidget(self.null_voltage_linedit,7,1)
+        stim_params_layout.addLayout(mode_box,8,0)
 
         # Add image at the bottom of the "Pulse Duration" column
         image_label = QLabel(self)
@@ -613,6 +656,23 @@ class ArduinoController(QWidget):
 
     def print_laser_amplitude(self):
         print(f'Laser amplitude set to: {self.laser_amp:.2f}v')
+
+    def update_null_voltage(self,value):
+        try:
+            self.null_voltage = float(value)
+            self.controller.init_cobalt(mode=self.cobalt_mode,
+                                        null_voltage=self.null_voltage)
+        except:
+            pass
+    
+    def update_cobalt_mode(self):
+        sender = self.sender()
+        if sender.isChecked():
+            print(f'Selected: {sender.text()} mode')
+            self.cobalt_mode = sender.text()[0]
+            self.controller.init_cobalt(mode=self.cobalt_mode,
+                                        null_voltage=self.null_voltage)
+        pass
     
     def start_camera_trig(self):
         self.controller.start_camera_trig(verbose=True)

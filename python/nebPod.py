@@ -711,15 +711,17 @@ class Controller:
         return('probe_settle','event',{})
     
 
-    def init_cobalt(self,mode ='S',power_meter_pin =16,verbose=False):
+    def init_cobalt(self,mode ='S',power_meter_pin =16,null_voltage = 0.5,verbose=False):
         '''
         Use this to initialize or modify the cobalt object in the arduino. Particularly useful if you want to switch between sigmoidal andz
         '''
-        #TODO: ability to modify null voltage
+        #TODO: test null voltage modification
+        null_voltage_uint8 = int(255*null_voltage)
         self.serial_port.serialObject.write('c'.encode('utf-8'))
         self.serial_port.serialObject.write('m'.encode('utf-8'))
         self.serial_port.serialObject.write(mode.encode('utf-8'))
         self.serial_port.write(power_meter_pin,'uint8')
+        self.serial_port.write(null_voltage_uint8,'uint8')
         self.block_until_read()
         print(f'initialized cobalt with mode {mode} and power meter pin {power_meter_pin}') if verbose else None
 
