@@ -1,27 +1,37 @@
 // Requires Cobalt and Tbox modules by NEB. 
 // The cobalt module provides control over an analog out that is sent to a cobalt MLD laser. REQUIRES TEENSY WITH A REAL DAC (3.2, 3.6? NOT 4.x)
 // The tbox module mostly provides default pin mappings for our experiments. Most of its job was UI over serial, but now that has been put into python. TODO: deprecate the old tbox stuff.
+//Have to hardwire/hardcode the serial ports for lack of better knowledge at this point.
+
 #include <ArCOM.h>
 #include <Cobalt.h>
 #include <Tbox.h>
 ArCOM pyControl(SerialUSB);
 ArCOM cameraPulser(Serial2);
+ArCOM olfactometer(Serial3); 
 Cobalt cobalt;
 Tbox tbox;
 
 const int numValves = 5;  // Number of gas valves to be included in the valve control. These should only have one open at a time
 int valves[numValves] = {0, 1, 2, 3, 4};  // Pins that the valves are on
-
+const int statusPin = 22;
 void setup() {
   SerialUSB.begin(115200);
   Serial2.begin(115200);
+  Serial3.begin(115200);
   // Flush any serial data in the buffer
-  while (pyControl.available()) {pyControl.readByte();}
+  while (pyControl.available()>0) {pyControl.readByte();}
+  while (cameraPulser.available()>0) {cameraPulser.readByte();}
+  while (olfactometer.available()>0) {olfactometer.readByte();}
   // Initialize valve pins as OUTPUT
   for (int i = 0; i < numValves; i++) {
     pinMode(valves[i], OUTPUT);
   }
-  
+  pinMode(statusPin,OUTPUT);
+  digitalWrite(statusPin,HIGH);
+  delay(100);
+  digitalWrite(statusPin,LOW);
+
   cobalt.begin();
   tbox.begin();
   tbox.attachDefaults();
@@ -30,7 +40,6 @@ void setup() {
 
 void loop() {
   if (pyControl.available() >=2) {
-    // pyControl.flush();
     // Instructions should always be at least two bytes. The first byte tells us which command class to run
     // Different command classes can have different trailing bytes that define parameters. If no further parameters are needed, the trailing byte will be discarded.
 
@@ -61,10 +70,13 @@ void loop() {
         processCommandH(); // Hering Breuer
         break;
       case 'o':
-        processCommandO();
+        processCommandO(); // opto power measure
         break;
       case 'c': // Cobalt
         processCommandC();
+        break;
+      case 's': // Olfactometer ([S]mell)
+        processCommandS();
         break;
 
       // Add more cases if needed
@@ -75,6 +87,29 @@ void loop() {
   }
 
 }
+
+//olfactometer (smell) Simply forward the command
+void processCommandS(){
+  char subcommand = pyControl.readChar();
+  int valve = pyControl.readUint8();
+  switch (subcommand) {
+  case 'o':
+    olfactometer.writeChar('o');
+    break;
+  case 'c':
+    olfactometer.writeChar('c');
+    break;
+  case 'b':
+    olfactometer.writeChar('b');
+    break;
+}
+  olfactometer.writeUint8(valve);
+  digitalWrite(statusPin, HIGH);
+  while (olfactometer.available()==0){} // Wait for response
+  while (olfactometer.available()>0){olfactometer.readByte();} // Clear response from olfactometer
+  digitalWrite(statusPin, LOW);
+}
+
 
 void processCommandC(){
   char subcommand = pyControl.readChar();
@@ -208,7 +243,10 @@ void processCameraCommands(){
     case 'e':
       cameraPulser.writeChar('e');
       cameraPulser.writeUint8(fps);
+      break;
 }
+  while (cameraPulser.available()==0){} // Wait for response
+  while (cameraPulser.available()>0){cameraPulser.readByte();} // Clear response from olfactometer
 }
 
 void playTone() {

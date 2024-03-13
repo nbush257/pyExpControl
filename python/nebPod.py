@@ -791,8 +791,62 @@ class Controller:
                 print('Invalid input. Must be a number')
         self.laser_command_amp = val
         print(f'Laser amplitude set to {self.laser_command_amp}v')
+
+
+    def open_olfactometer(self,valve,verbose=True):
+        '''
+        Open an olfactometer valve
+        '''
+        self.serial_port.serialObject.write('s'.encode('utf-8')) #smell
+        self.serial_port.serialObject.write('o'.encode('utf-8')) #open
+        self.serial_port.write(int(valve),'uint8')
+
+        print(f'Open olfactometer valve {valve}') if verbose else None
+        self.block_until_read()
+        return('open_olfactometer_valve','odor',{'valve':valve})
+
+
+    def close_olfactometer(self,valve,verbose=True):
+        '''
+        Close an olfactometer valve
+        '''
+        self.serial_port.serialObject.write('s'.encode('utf-8')) #smell
+        self.serial_port.serialObject.write('c'.encode('utf-8')) #close
+        self.serial_port.write(int(valve),'uint8')
+
+        print(f'Close olfactometer valve {valve}') if verbose else None
+        self.block_until_read()
+        return('close_olfactometer_valve','odor',{'valve':valve})
     
+
+    def set_all_olfactometer_valves(self,binary_string,verbose=True):
+        """Set all valves of the olfactometer witha  single command. 
+        Pass a binary string (e.g., '01010101') Where 0 is closed and 1 is open
+
+        Pass a string that looks like the olfactometer(left most bit is the left most valve). 
+        Reverses the string before sending due to bit ordering (there is probably a better way to do this but I am ignorant)
+
+        Input:
+        Valve 8 is the right most bit, Valve 1 is the left most bit.
         
+        Send to teensy:
+        Valve 1 is the right most bit, Valve 8 is the left most bit.
+        
+        Args:
+            binary_string (str): Binary string
+            verbose (bool, optional): _description_. Defaults to True.
+        """        
+        assert(len(binary_string)==8),'Binary string must be 8 characters long.'
+        binary_string_revr = binary_string[::-1]
+        decimal_value = int(binary_string_revr, 2)
+        self.serial_port.serialObject.write('s'.encode('utf-8')) #open
+        self.serial_port.serialObject.write('b'.encode('utf-8')) #open
+        self.serial_port.write(decimal_value,'uint8')
+
+        print(f'Set all valves to {binary_string}') if verbose else None
+        self.block_until_read()
+        return('set_all_valves','odor',{'valve':binary_string})
+
 
 
         

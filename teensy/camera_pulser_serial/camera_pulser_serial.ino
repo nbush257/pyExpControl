@@ -8,7 +8,7 @@
 // Teensy 3.x / Teensy LC have the LED on pin 13
 #include <ArCOM.h>
 #include <Bounce2.h>
-ArCOM pyControl(Serial1);
+ArCOM teensyControl(Serial1);
 
 const int ledPin = 12;
 const int statusPin = 13;
@@ -38,7 +38,7 @@ void setup() {
   record=false;
   t1 = micros();
   t2 = micros();
-  while (pyControl.available()){pyControl.readByte();}
+  while (teensyControl.available()){teensyControl.readByte();}
   
   
 }
@@ -49,8 +49,9 @@ void loop() {
     toggleRecording();
     }
 
-   if (pyControl.available() >=2) {
-    char commandType = pyControl.readChar();
+   if (teensyControl.available() >=2) {
+    char commandType = teensyControl.readChar();
+    delay(2);
     switch (commandType) {
       case 'b':
         beginRecording();
@@ -59,6 +60,7 @@ void loop() {
         endRecording();
         break;
    }
+   teensyControl.writeUint8(255);
    }
 
 
@@ -78,14 +80,14 @@ void loop() {
 }
 
 void beginRecording(){
-    int fps = pyControl.readUint8();
+    int fps = teensyControl.readUint8();
     inter_frame_interval = (int)((1.0/float(fps))*1000.0*1000.0);
     record = true;
     digitalWrite(statusPin,HIGH);
 }
 
 void endRecording(){
-    pyControl.readUint8();
+    teensyControl.readUint8();
     record=false;  
     digitalWrite(ledPin,LOW);
     digitalWrite(statusPin,LOW);
