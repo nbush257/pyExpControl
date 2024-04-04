@@ -9,6 +9,7 @@
 #include <ArCOM.h>
 
 ArCOM teensyControl(Serial1);
+ArCOM usbControl(SerialUSB);
 
 
 const int out_1A = 14;
@@ -37,9 +38,12 @@ const int led_8 = 22;
 
 int valveState[8] = {0,0,0,0,0,0,0,0};
 
+char commandType = ' ';
+int valveID = 0;
+
 
 void setup() {
-  SerialUSB.begin(9600);
+  SerialUSB.begin(115200);
   Serial1.begin(115200);
   while (teensyControl.available()>0){teensyControl.readByte();}
 
@@ -90,22 +94,31 @@ void setup() {
 
 void loop() {
    if (teensyControl.available() >=2) {
-    char commandType = teensyControl.readChar();
-    int valveID = teensyControl.readUint8(); 
+    commandType = teensyControl.readChar();
+    valveID = teensyControl.readUint8(); 
+    subLoop();
+    teensyControl.writeUint8(255);
+   }
+    if (usbControl.available() >=2) {
+    commandType = usbControl.readChar();
+    valveID = usbControl.readUint8(); 
+    subLoop();
+    usbControl.writeUint8(255);
+   }
 
+}
+
+void subLoop(){
     delay(2);
     switch (commandType) {
       case 'o':    
         openValve(valveID);
-        teensyControl.writeUint8(255);
         break;
       case 'c':
         closeValve(valveID);
-        teensyControl.writeUint8(255);
         break;
       case 'b': // set the state of several valves
         processBinaryControl(valveID);
-        teensyControl.writeUint8(255);
         break;
       case 'q':
         //todo: implement valve query by checking state and writing to uint8 byte
@@ -115,11 +128,7 @@ void loop() {
         delay(100);
         digitalWrite(13,HIGH);
         processBinaryControl(B00000000);
-        teensyControl.writeUint8(255);
    }
-
-   }
-
 }
 
 void processBinaryControl(uint bitArray){

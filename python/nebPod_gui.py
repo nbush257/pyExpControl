@@ -37,7 +37,7 @@ class ArduinoController(QWidget):
             print(f"No Serial port found on {PORT}. GUI will show up but not do anything")
         self.port = PORT
         self.laser_amp = 0.65
-        self.null_voltage = 0.5
+        self.null_voltage = 0.4
         self.cobalt_mode='S'
         self.hb_time = 0.5
         self.train_freq = 10.0
@@ -495,7 +495,7 @@ class ArduinoController(QWidget):
                                     amp=self.laser_amp,
                                     duration_sec=self.insp_phasic_duration,
                                     intertrain_interval_sec=0.,
-                                    pulse_dur_sec=self.train_pulse_dur
+                                    pulse_duration_sec=self.train_pulse_dur
                                     )
     def run_exp_phasic(self):
         print('Running expiratory phasic stim')
@@ -511,7 +511,7 @@ class ArduinoController(QWidget):
                             amp=self.laser_amp,
                             duration_sec=self.exp_phasic_duration,
                             intertrain_interval_sec=0.,
-                            pulse_dur_sec = self.train_pulse_dur,
+                            pulse_duration_sec = self.train_pulse_dur,
                             freq = 10.0
                             )
         
@@ -521,7 +521,7 @@ class ArduinoController(QWidget):
                                     amp=self.laser_amp,
                                     duration_sec=self.exp_phasic_duration,
                                     intertrain_interval_sec=0.,
-                                    pulse_dur_sec=self.train_pulse_dur
+                                    pulse_duration_sec=self.train_pulse_dur
                                     )
     def run_tagging(self):
         self.controller.run_tagging()
@@ -565,6 +565,10 @@ class ArduinoController(QWidget):
             print(f'Selected script: {file_name}')
 
     def run_script(self):
+        if (self.script_filename is None) or (not self.script_filename.exists()):
+            print(f'Script {self.script_filename} not found. Please select a valid file')
+            return None
+        print(f'Running script {self.script_filename}')
         command = ['python',str(self.script_filename)]
         self.script_run_button.setStyleSheet('background-color: #111111')
         self.setStyleSheet('background-color: #AA1111')
@@ -574,7 +578,6 @@ class ArduinoController(QWidget):
         QApplication.processEvents()
         subprocess.Popen(' '.join(command))
         QApplication.processEvents()
-        # subprocess.run(command)
 
     def update_train_freq(self,value):
         try:

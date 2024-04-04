@@ -14,6 +14,7 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 import datetime
+import functools
 
 def interval_timer(func):
     '''
@@ -93,7 +94,9 @@ class Controller:
         self.gate_dest = None
         self.gate_dest_default = 'D:/sglx_data'
         self.log_filename = None
-        self.init_cobalt() # Initialize the laser controller object
+        self.init_time = time.time()
+        self.init_cobalt(null_voltage=0.4) # Initialize the laser controller object
+        self.laser_command_amp = None
     
     @logger
     @event_timer
@@ -113,7 +116,7 @@ class Controller:
     
     @logger
     @event_timer
-    def present_gas(self,gas,presentation_time = 5.0,verbose=False,progress='bar'):
+    def present_gas(self,gas,presentation_time =None,verbose=False,progress='bar'):
         '''
         this is a blocking wrapper to open_valve that takes a gas name as input,
         and then sleeps the function for the presentation time
@@ -125,9 +128,10 @@ class Controller:
         # invert the dictionary to use gas to map to the valve
         inv_map = {v: k for k, v in self.gas_map.items()}
 
-        print(f'Presenting {gas} for {presentation_time}s') if verbose else None
+        print(f'Presenting {gas}') if verbose else None
         self.open_valve(inv_map[gas],log_enabled=False)
-        self.wait(presentation_time,msg=f'Presenting {gas}',progress=progress)
+        if presentation_time is not None:
+            self.wait(presentation_time,msg=f'Presenting {gas}',progress=progress)
         return(f'present_{gas}','gas',{})
     
     @logger
@@ -349,7 +353,7 @@ class Controller:
             time.sleep(0.001)
         power_int = self.serial_port.read(1,'uint16') # Power as a 10bit integer
         power_v = power_int/self.ADC_RANGE * self.V_REF # Powerr as a voltage
-        power_mw = (power_v/2)*self.MAX_MILLIWATTAGE # power in milliwatts
+        power_mw = (power_v/2.)*self.MAX_MILLIWATTAGE # power in milliwatts
         self.block_until_read()
 
         if output=='v':
@@ -629,7 +633,7 @@ class Controller:
             pass
         return(int(amp*100))
     
-    def save_log(self,path = None,filename=None,make_relative=True,verbose=True):
+    def save_log(self,path = None,filename=None,verbose=True):
         '''
         Save log to a tab seperated file
         path: path to save to. Defaults to D:/sglx)data
@@ -643,13 +647,14 @@ class Controller:
         log_df = pd.DataFrame(self.log)
         
         # make times relative to recording start
-        if make_relative:
-            log_df['start_time'] -=self.rec_start_time
-            log_df['end_time'] -=self.rec_start_time
+        base_time = self.rec_start_time or self.init_time
+
+        log_df['start_time'] -=base_time
+        log_df['end_time'] -=base_time
         
         # Make gasses extend until next gas change
         gasses = log_df.query('category=="gas"')
-        end_times = np.concatenate([gasses['start_time'][1:].values,[time.time()-self.rec_start_time]])
+        end_times = np.concatenate([gasses['start_time'][1:].values,[time.time()-base_time]])
         gasses.iloc[:]['end_time'] = end_times
         log_df.loc[gasses.index] = gasses
 
@@ -695,6 +700,7 @@ class Controller:
         except KeyboardInterrupt:
             print('"Wait interrupted!')
             time.sleep(1)
+            return('wait','event',{})
 
         return('wait','event',{})
     
@@ -706,6 +712,8 @@ class Controller:
         if settle_time_sec is None:
             settle_time_sec = self.settle_time_sec
         msg = 'Waiting for probe to settle'
+        print('MAKE SURE TO ENABLE THE RECORDING, CHECK YOUR VALVES, AND PLACE THE OPTOFIBERS, IF REQUIRED')
+        self.play_alert()
         self.wait(settle_time_sec,msg=msg)
         print('Done settling') if verbose else None
         return('probe_settle','event',{})
@@ -774,7 +782,7 @@ class Controller:
                 print('Invalid input. Input must be a number')
     
     
-        self.log_filename = f'_cibbrig_.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.log.tsv'
+        self.log_filename = f'_cibbrig_log.table.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.tsv'
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
 
@@ -792,7 +800,8 @@ class Controller:
         self.laser_command_amp = val
         print(f'Laser amplitude set to {self.laser_command_amp}v')
 
-
+    @logger
+    @event_timer
     def open_olfactometer(self,valve,verbose=True):
         '''
         Open an olfactometer valve
@@ -805,7 +814,8 @@ class Controller:
         self.block_until_read()
         return('open_olfactometer_valve','odor',{'valve':valve})
 
-
+    @logger
+    @event_timer
     def close_olfactometer(self,valve,verbose=True):
         '''
         Close an olfactometer valve
@@ -818,7 +828,8 @@ class Controller:
         self.block_until_read()
         return('close_olfactometer_valve','odor',{'valve':valve})
     
-
+    @logger
+    @event_timer
     def set_all_olfactometer_valves(self,binary_string,verbose=True):
         """Set all valves of the olfactometer witha  single command. 
         Pass a binary string (e.g., '01010101') Where 0 is closed and 1 is open
@@ -847,7 +858,35 @@ class Controller:
         self.block_until_read()
         return('set_all_valves','odor',{'valve':binary_string})
 
+    def graceful_close(self):
+        self.stop_recording()
+        print("Keyboard interrupted! Shutting down.")
+        self.make_log_entry('Killed','event')
+        self.stop_camera_trig()
+        self.save_log()
+    
+    def preroll(self,use_camera=True,gas='O2',settle_sec=None):
+        """
+        Boilerplate commands to start an experiment.
+        Sets the default laser amplitude.
 
+        Args:
+            use_camera (bool, optional): If true, starts the camera trigger. Defaults to True.
+            gas (str, optional): Which gas to send by default. Defaults to 'O2'.must be in gas map: {'O2','room air','hypercapnia','hypoxia','N2'} 
+            settle_sec (_type_, optional): Settle time n seconds. Defaults to None which grabs the default for the controller object
+        """        
+        '''
+        '''
+        self.settle_time_sec = settle_sec or self.settle_time_sec
+        print(f'Default presenting {gas}')
+        self.present_gas(gas)
+        self.get_logname_from_user()
+        self.get_laser_amp_from_user()
+        self.settle()
+        self.start_recording()
+        if use_camera:
+            self.start_camera_trig()
+        
 
         
 def sec2ms(val):

@@ -17,22 +17,13 @@ import datetime
 from nebPod import event_timer,interval_timer,logger,Controller
 
 
-class Olfactometer(object):
-    def __init__(self):
-        self.controller = Controller()
+class Olfactometer(Controller):
+    def __init__(self,port):
+        super().__init__(port)
+        self.set_all_olfactometer_valves('00000000')
 
-    def save_log(self):
-        return self.controller.save_log()
-
-    def make_log_entry(self):
-        return self.controller.make_log_entry()
-
-    def wait(self):
-        return self.controller.wait()
-    
-    def get_logname_from_user(self):
-        return self.controller.get_logname_from_user()
-    
+    @logger
+    @event_timer
     def open_olfactometer(self,valve,verbose=True):
         '''
         Open an olfactometer valve
@@ -40,11 +31,12 @@ class Olfactometer(object):
         self.serial_port.serialObject.write('o'.encode('utf-8')) #open
         self.serial_port.write(int(valve),'uint8')
 
-        print(f'Open olfactometer valve {valve}') if verbose else None
+        print(f'Opens olfactometer valve {valve}') if verbose else None
         self.block_until_read()
         return('open_olfactometer_valve','odor',{'valve':valve})
 
-
+    @logger
+    @event_timer
     def close_olfactometer(self,valve,verbose=True):
         '''
         Close an olfactometer valve
@@ -52,11 +44,12 @@ class Olfactometer(object):
         self.serial_port.serialObject.write('c'.encode('utf-8')) #close
         self.serial_port.write(int(valve),'uint8')
 
-        print(f'Close olfactometer valve {valve}') if verbose else None
+        print(f'Closes olfactometer valve {valve}') if verbose else None
         self.block_until_read()
         return('close_olfactometer_valve','odor',{'valve':valve})
     
-
+    @logger
+    @event_timer
     def set_all_olfactometer_valves(self,binary_string,verbose=True):
         """Set all valves of the olfactometer witha  single command. 
         Pass a binary string (e.g., '01010101') Where 0 is closed and 1 is open
@@ -80,8 +73,9 @@ class Olfactometer(object):
         self.serial_port.serialObject.write('b'.encode('utf-8')) #open
         self.serial_port.write(decimal_value,'uint8')
 
-        print(f'Set all valves to {binary_string}') if verbose else None
+        print(f'Sets all valves to {binary_string}') if verbose else None
         self.block_until_read()
         return('set_all_valves','odor',{'valve':binary_string})
+
 
 

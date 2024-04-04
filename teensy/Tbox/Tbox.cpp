@@ -170,8 +170,6 @@ void Tbox::stop_recording()
     // Stop the recording by setting the record pin to low and turn on O2
 
     digitalWrite(_REC_PIN, LOW);
-    open_O2();
-    delay(5000);
 
 }
 
