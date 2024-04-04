@@ -47,12 +47,14 @@ class ArduinoController(QWidget):
         self.insp_phasic_duration = 10.0
         self.exp_phasic_duration = 4.0
         self.save_path = Path('D:/')
+        self.controller.gate_dest = self.save_path
         self.script_filename = None
         self.implemented_wavelengths = ['473nm','635nm','undefined']
         self.powermeter_lims = {'473nm':310.,'635nm':140.}
         self.implemented_fibers = ['200um doric 0.22NA','600um doric 0.22NA','undefined']
         self.fiber=self.implemented_fibers[0]
         self.light_wavelength=self.implemented_wavelengths[0]
+        self.log_enabled=False
 
         self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
         self.end_hb()
@@ -444,20 +446,20 @@ class ArduinoController(QWidget):
         self.log_lineedit.setText('')
 
     def open_valve(self, button_number):
-        self.controller.open_valve(button_number,log_style='gas')
+        self.controller.open_valve(button_number,log_style='gas',log_enabled=self.log_enabled)
         
     def end_hb(self):
-        self.controller.end_hb()
+        self.controller.end_hb(log_enabled=self.log_enabled)
 
     def start_hb(self):
-        self.controller.start_hb()
+        self.controller.start_hb(log_enabled=self.log_enabled)
 
     def timed_hb(self):
         print(f'Running Hering Breuer for {self.hb_time:.2f}s')
-        self.controller.timed_hb(self.hb_time)
+        self.controller.timed_hb(self.hb_time,log_enabled=self.log_enabled)
 
     def run_pulse(self, duration):
-        self.controller.run_pulse(duration,self.laser_amp)
+        self.controller.run_pulse(duration,self.laser_amp,log_enabled=self.log_enabled)
         print(f'Selected pulse duration: {int(1000*duration)}ms, Laser Amplitude: {self.laser_amp:.2f}')
 
     def run_custom_train(self):
@@ -469,7 +471,7 @@ class ArduinoController(QWidget):
         self.controller.run_train(self.train_duration,
                                   self.train_freq,
                                   self.laser_amp,
-                                  self.train_pulse_dur)
+                                  self.train_pulse_dur,log_enabled=self.log_enabled)
 
     def run_insp_phasic(self):
         print('Running inspiratory phasic stim')
@@ -477,6 +479,7 @@ class ArduinoController(QWidget):
                                     amp=self.laser_amp,
                                     duration_sec=self.insp_phasic_duration,
                                     intertrain_interval_sec=0.,
+                                    log_enabled=self.log_enabled
                                     )
         
     def run_insp_phasic_train(self):
@@ -486,7 +489,8 @@ class ArduinoController(QWidget):
                             duration_sec=self.insp_phasic_duration,
                             intertrain_interval_sec=0.,
                             pulse_dur_sec = self.train_pulse_dur,
-                            freq = 10
+                            freq = 10,
+                            log_enabled=self.log_enabled
                             )
         
     def run_insp_phasic_single_pulse(self):
@@ -495,7 +499,8 @@ class ArduinoController(QWidget):
                                     amp=self.laser_amp,
                                     duration_sec=self.insp_phasic_duration,
                                     intertrain_interval_sec=0.,
-                                    pulse_duration_sec=self.train_pulse_dur
+                                    pulse_duration_sec=self.train_pulse_dur,
+                                    log_enabled=self.log_enabled
                                     )
     def run_exp_phasic(self):
         print('Running expiratory phasic stim')
@@ -503,6 +508,7 @@ class ArduinoController(QWidget):
                             amp=self.laser_amp,
                             duration_sec=self.exp_phasic_duration,
                             intertrain_interval_sec=0.,
+                            log_enabled=self.log_enabled
                             )
 
     def run_exp_phasic_train(self):
@@ -512,7 +518,8 @@ class ArduinoController(QWidget):
                             duration_sec=self.exp_phasic_duration,
                             intertrain_interval_sec=0.,
                             pulse_duration_sec = self.train_pulse_dur,
-                            freq = 10.0
+                            freq = 10.0,
+                            log_enabled=self.log_enabled
                             )
         
     def run_exp_phasic_single_pulse(self):
@@ -521,18 +528,19 @@ class ArduinoController(QWidget):
                                     amp=self.laser_amp,
                                     duration_sec=self.exp_phasic_duration,
                                     intertrain_interval_sec=0.,
-                                    pulse_duration_sec=self.train_pulse_dur
+                                    pulse_duration_sec=self.train_pulse_dur,
+                                    log_enabled=self.log_enabled
                                     )
     def run_tagging(self):
-        self.controller.run_tagging()
+        self.controller.run_tagging(log_enabled=self.log_enabled)
 
                 
     def play_tone(self):
-        self.controller.play_tone(1000,0.5)
+        self.controller.play_tone(1000,0.5,log_enabled=self.log_enabled)
         print("Playing a tone")
 
     def synch_audio(self):
-        self.controller.play_synch()
+        self.controller.play_synch(log_enabled=self.log_enabled)
         print("Running audio synch")
         
     def update_hb_time(self,value):
@@ -548,6 +556,7 @@ class ArduinoController(QWidget):
         if directory_path:
             self.file_path_input.setText(directory_path)
             self.save_path = Path(directory_path)
+            self.controller.gate_dest = self.save_path
             print(f'Selected save path: {directory_path}')
 
     def browse_script(self):
@@ -712,10 +721,10 @@ class ArduinoController(QWidget):
         pass
     
     def start_camera_trig(self):
-        self.controller.start_camera_trig(verbose=True)
+        self.controller.start_camera_trig(verbose=True,log_enabled=self.log_enabled)
 
     def stop_camera_trig(self):
-        self.controller.stop_camera_trig(verbose=True)
+        self.controller.stop_camera_trig(verbose=True,log_enabled=self.log_enabled)
     
     def toggle_recording(self):
         if self.record_button.isChecked():
@@ -730,13 +739,16 @@ class ArduinoController(QWidget):
 
     def start_record(self):
         self.controller.log = []
-        self.controller.start_recording(silent=True)
+        self.log_enabled=True
+        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.controller.log_filename = f'log.table.{now}.tsv'
+        self.controller.start_recording(silent=True,log_enabled= self.log_enabled)
 
     def stop_record(self):
         print('stopping recording...')
-        self.controller.stop_recording(reset_to_O2=False,silent=True,verbose=False)
-        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        self.controller.save_log(path = Path(r'D:/'), filename=f'log_{now}.tsv')
+        self.controller.stop_recording(reset_to_O2=False,silent=True,verbose=False,log_enabled=True)
+        self.controller.save_log()
+        self.log_enabled=False
 
 
     # Shutdown

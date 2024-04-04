@@ -70,6 +70,7 @@ def logger(func):
         result = func(self, *args, **kwargs)
         if log_enabled:
             self.log.append(result)
+            self.save_log(verbose=False)
         return result
     return wrapper
 
