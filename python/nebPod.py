@@ -660,7 +660,8 @@ class Controller:
         log_df.loc[gasses.index] = gasses
 
         log_df.to_csv(save_fn,sep='\t')
-        print(f'Log saved to {save_fn}')
+        if verbose:
+            print(f'Log saved to {save_fn}')
     
     @logger
     def make_log_entry(self,label,category,start_time = None,end_time = None,**kwargs):

@@ -756,6 +756,8 @@ class ArduinoController(QWidget):
         # Close the ArCOM port when the application is closed
         # self.open_valve(0,1) -- Uncomment this to default to O2 on close
         self.controller.serial_port.serialObject.read_all()
+        self.stop_record()
+        self.open_valve(0)
         if self.IS_CONNECTED:
             self.controller.serial_port.close()
             self.IS_CONNECTED = False
