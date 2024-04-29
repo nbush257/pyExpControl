@@ -610,13 +610,6 @@ class Controller:
         # while self.serial_port.bytesAvailable()>0:
         #     self.serial_port.read(1,'byte')
     
-    def close(self):
-        '''
-        Close the experiment. 
-        NB: not sure why this is implemented.
-        '''
-        self.reset()
-        print('Closing experiment')
     
     def _amp2int(self,amp):
         '''
@@ -643,7 +636,10 @@ class Controller:
         '''
         path = self.gate_dest or path or Path(r'D:/sglx_data') 
         now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        filename = self.log_filename or filename or f'all_event_log_{now}.tsv'
+        filename = self.log_filename or filename
+        if filename is None:
+            print('NO LOG SAVED!!! NO filename is passed')
+            return
         save_fn = path.joinpath(filename)
         log_df = pd.DataFrame(self.log)
         
@@ -861,6 +857,9 @@ class Controller:
         return('set_all_valves','odor',{'valve':binary_string})
 
     def graceful_close(self):
+        self.close(self)
+
+    def close(self):
         self.stop_recording()
         print("Keyboard interrupted! Shutting down.")
         self.make_log_entry('Killed','event')
