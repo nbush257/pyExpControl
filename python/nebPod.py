@@ -85,7 +85,7 @@ class Controller:
             print(f"No Serial port found on {port}. GUI will show up but not do anything")
         # Set the gas map if supplied. This maps the teensy pin to the gas 
         self.gas_map = gas_map or {0:'O2',1:'room air',2:'hypercapnia',3:'hypoxia',4:'N2'}
-        self.ADC_RANGE=1023 # 10bit adc range (TODO: read from teeensy)
+        self.ADC_RANGE=8191 # 13bit adc range (TODO: read from teeensy)
         self.V_REF = 3.3 # Teensy 3.2 vref
         self.MAX_MILLIWATTAGE = 310. # Thorlabs light meter max range to scale the photometer calibration
         self.settle_time_sec = 15*60 # Default settle time
@@ -381,21 +381,30 @@ class Controller:
 
         # Initialize output
         powers = np.zeros_like(amps_to_test) * np.nan
+        self.turn_off_laser(0)
 
         for ii,amp in enumerate(amps_to_test):
             power_mw = self.poll_laser_power(amp,verbose=verbose,output=output)
             powers[ii] = power_mw
 
-        # Subtract off the first reading (NB: commenting out for now.)
-        powers -=powers[0]
+        # Subtract off the first reading 
+        powers -=powers[1]
         if plot:
             f = plt.figure()
             plt.plot(amps_to_test[1:],powers[1:],'ko-')
             if output == 'mw':
                 plt.ylabel('Power (mw)')
+                key_powers = [2.5,5,10]
+                key_amp_idx = np.searchsorted(amps_to_test,key_powers)
+                key_amps = amps_to_test[key_amp_idx-1]
+                print(key_amps)
+                for aa,pp in zip(key_amps,key_powers):
+                    plt.axvline(aa,color='tab:blue',ls='--')
+                    plt.text(aa,plt.gca().get_ylim()[1]*0.9,f'{aa:0.1f}v={pp:0.1f}mW')
+                
             else:
                 plt.ylabel('Analog voltage read')
-            plt.axhline(powers[0],color='r',ls='--')
+            plt.axhline(powers[1],color='r',ls='--')
             
             plt.xlabel('Command voltage (V)')
             plt.tight_layout()

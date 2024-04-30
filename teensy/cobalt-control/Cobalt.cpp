@@ -7,6 +7,7 @@ Cobalt::Cobalt(){
 
 void Cobalt::begin() {
   analogWriteResolution(DAC_RESOLUTION); 
+  analogReadResolution(13); 
   pinMode(LASER_PIN,OUTPUT);
   pinMode(AIN_PIN,INPUT);
   pinMode(POT_PIN,INPUT);
@@ -355,7 +356,13 @@ void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms
 int Cobalt::poll_laser_power(float amp){
   _turn_on(amp);
   delay(100);
-  uint power_int = analogRead(POWER_METER_PIN); // 10bit
+  // uint power_int = analogRead(POWER_METER_PIN); // 10bit
+  uint power_int = 0;
+  for (int i=0; i<20; i++){     
+    power_int += analogRead(POWER_METER_PIN);
+    delay(5);
+  }
+  uint average = power_int /20;
   _turn_off(amp);
-  return power_int;
+  return average;
 }
