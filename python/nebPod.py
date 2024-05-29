@@ -395,12 +395,14 @@ class Controller:
             if output == 'mw':
                 plt.ylabel('Power (mw)')
                 key_powers = [2.5,5,10]
-                key_amp_idx = np.searchsorted(amps_to_test,key_powers)
+                key_amp_idx = np.searchsorted(powers,key_powers)
                 key_amps = amps_to_test[key_amp_idx-1]
                 print(key_amps)
                 for aa,pp in zip(key_amps,key_powers):
                     plt.axvline(aa,color='tab:blue',ls='--')
-                    plt.text(aa,plt.gca().get_ylim()[1]*0.9,f'{aa:0.1f}v={pp:0.1f}mW')
+                    plt.axhline(pp,color='tab:green',ls='--')
+                    plt.text(0.25,pp,f'{aa:0.2f}v={pp:0.2f}mW')
+                plt.ylim(-2,20)
                 
             else:
                 plt.ylabel('Analog voltage read')
@@ -584,7 +586,7 @@ class Controller:
         '''
         self.serial_port.serialObject.write('a'.encode('utf-8')) # Auxiliary
         self.serial_port.serialObject.write('v'.encode('utf-8')) # Video 
-        self.serial_port.serialObject.write('e'.encode('utf-8')) # begin
+        self.serial_port.serialObject.write('e'.encode('utf-8')) # end
         self.serial_port.write(int(0),'uint8')  
         print(f'Stop camera') if verbose else None
         return('stop_camera','event',{})
@@ -719,7 +721,7 @@ class Controller:
         if settle_time_sec is None:
             settle_time_sec = self.settle_time_sec
         msg = 'Waiting for probe to settle'
-        print('MAKE SURE TO ENABLE THE RECORDING, CHECK YOUR VALVES, AND PLACE THE OPTOFIBERS, IF REQUIRED')
+        print('MAKE SURE TO: \n\tENABLE THE RECORDING\n\tCHECK YOUR VALVES \n\tENABLE VIDEO \n\tAND PLACE THE OPTOFIBERS, IF REQUIRED')
         self.play_alert()
         self.wait(settle_time_sec,msg=msg)
         print('Done settling') if verbose else None
@@ -875,7 +877,7 @@ class Controller:
         self.stop_camera_trig()
         self.save_log()
     
-    def preroll(self,use_camera=True,gas='O2',settle_sec=None):
+    def preroll(self,use_camera=True,gas='O2',settle_sec=None,set_olfactometer=True):
         """
         Boilerplate commands to start an experiment.
         Sets the default laser amplitude.
@@ -889,12 +891,21 @@ class Controller:
         '''
         self.settle_time_sec = settle_sec or self.settle_time_sec
         print(f'Default presenting {gas}')
+        self.stop_camera_trig()
+        self.stop_recording()
+
+        # Assumes the first valve is blank
+        if set_olfactometer:
+            self.set_all_olfactometer_valves('11111111')
+            self.set_all_olfactometer_valves('00000000')
+            self.set_all_olfactometer_valves('10000000')
         self.present_gas(gas)
         self.get_logname_from_user()
         self.get_laser_amp_from_user()
         self.settle()
         self.start_recording()
         if use_camera:
+            time.sleep(0.5) 
             self.start_camera_trig()
         
 
