@@ -488,7 +488,7 @@ class ArduinoController(QWidget):
                             amp=self.laser_amp,
                             duration_sec=self.insp_phasic_duration,
                             intertrain_interval_sec=0.,
-                            pulse_dur_sec = self.train_pulse_dur,
+                            pulse_duration_sec = self.train_pulse_dur,
                             freq = 10,
                             log_enabled=self.log_enabled
                             )
