@@ -98,6 +98,7 @@ class Controller:
         self.init_time = time.time()
         self.init_cobalt(null_voltage=0.4) # Initialize the laser controller object
         self.laser_command_amp = None
+        self.odor_map =None
     
     @logger
     @event_timer
@@ -867,6 +868,28 @@ class Controller:
         self.block_until_read()
         return('set_all_valves','odor',{'valve':binary_string})
 
+
+    @logger
+    @interval_timer
+    def present_odor(self,odor,duration_sec=None):
+        #TODO: test this functionality
+        if self.odormap is not None:
+            valve_num = self.odor_map[odor]
+
+        else:
+            print('No odormap! Not changing olfactometer valves')
+            return(-1)
+        valve_string = ''.join(['1' if ii==valve_num-1 else '0' for ii in range(8)])
+        self.set_all_olfactometer_valves(valve_string,log_enabled=False)
+        if duration_sec is not None:
+            time.sleep(duration_sec)
+            valve_num = self.odor_map['blank']
+            valve_string = ''.join(['1' if ii==valve_num-1 else '0' for ii in range(8)])
+            self.set_all_olfactometer_valves(valve_string,log_enabled=False)
+        
+        return('present_odor','odor',{'odor':odor})
+
+
     def graceful_close(self):
         self.close(self)
 
@@ -896,9 +919,13 @@ class Controller:
 
         # Assumes the first valve is blank
         if set_olfactometer:
-            self.set_all_olfactometer_valves('11111111')
-            self.set_all_olfactometer_valves('00000000')
-            self.set_all_olfactometer_valves('10000000')
+            if self.odor_map is None:
+                print('WARNING! No odor map supplied. Olfactometer only works with supplied valve numbers')
+                self.set_all_olfactometer_valves('11111111')
+                self.set_all_olfactometer_valves('00000000')
+                self.set_all_olfactometer_valves('10000000')
+            else:
+                self.present_odor('blank')
         self.present_gas(gas)
         self.get_logname_from_user()
         self.get_laser_amp_from_user()
