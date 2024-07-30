@@ -234,7 +234,7 @@ void processCommandA() {
 
 void processCameraCommands(){
   char subcommand = pyControl.readChar();
-  int fps = pyControl.readUint8();;
+  int fps = pyControl.readUint8();
   switch (subcommand) {
     case 'b':
       cameraPulser.writeChar('b');
@@ -246,7 +246,7 @@ void processCameraCommands(){
       break;
 }
   while (cameraPulser.available()==0){} // Wait for response
-  while (cameraPulser.available()>0){cameraPulser.readByte();} // Clear response from olfactometer
+  while (cameraPulser.available()>0){cameraPulser.readByte();} // Clear response 
 }
 
 void playTone() {

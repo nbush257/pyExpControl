@@ -60,7 +60,6 @@ void loop() {
         endRecording();
         break;
    }
-   teensyControl.writeUint8(255);
    }
 
 
@@ -84,13 +83,15 @@ void beginRecording(){
     inter_frame_interval = (int)((1.0/float(fps))*1000.0*1000.0);
     record = true;
     digitalWrite(statusPin,HIGH);
+    teensyControl.writeUint8(255);
 }
 
 void endRecording(){
-    teensyControl.readUint8();
+    int fps = teensyControl.readUint8();
     record=false;  
     digitalWrite(ledPin,LOW);
     digitalWrite(statusPin,LOW);
+    teensyControl.writeUint8(255);
 }
 
 void toggleRecording(){

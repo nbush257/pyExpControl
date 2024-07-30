@@ -75,7 +75,7 @@ def logger(func):
     return wrapper
 
 class Controller:
-    def __init__(self,port,gas_map = None,cobalt_mode='S'):
+    def __init__(self,port,gas_map = None,cobalt_mode='S',null_voltage = 0.4):
         try:
             self.serial_port = ArCOMObject(port,115200)  # Replace 'COM11' with the actual port of your Arduino
             self.IS_CONNECTED=True
@@ -96,7 +96,9 @@ class Controller:
         self.gate_dest_default = 'D:/sglx_data'
         self.log_filename = None
         self.init_time = time.time()
-        self.init_cobalt(null_voltage=0.4) # Initialize the laser controller object
+        if cobalt_mode == 'B':
+            null_voltage=0
+        self.init_cobalt(null_voltage=null_voltage) # Initialize the laser controller object
         self.laser_command_amp = None
         self.odor_map =None
     
@@ -914,8 +916,8 @@ class Controller:
         '''
         self.settle_time_sec = settle_sec or self.settle_time_sec
         print(f'Default presenting {gas}')
-        self.stop_camera_trig()
-        self.stop_recording()
+        # self.stop_camera_trig()
+        # self.stop_recording()
 
         # Assumes the first valve is blank
         if set_olfactometer:
