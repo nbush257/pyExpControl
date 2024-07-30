@@ -377,7 +377,7 @@ class Controller:
         plot: If true, plot the relationship between the voltage command and the output.
         output: Units of output requested. Can be ['mw','v']. Otherwise it returns the raw read from the arduino
         '''
-        amp_range = amp_range or [0,1.01]
+        amp_range = amp_range or [0,.81]
         amps_to_test = np.arange(amp_range[0],amp_range[1],amp_res)
         # Add a zero to get background voltage
         amps_to_test = np.concatenate([[0],amps_to_test])
