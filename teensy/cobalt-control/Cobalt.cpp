@@ -356,7 +356,6 @@ void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms
 int Cobalt::poll_laser_power(float amp){
   _turn_on(amp);
   delay(100);
-  // uint power_int = analogRead(POWER_METER_PIN); // 10bit
   uint power_int = 0;
   for (int i=0; i<20; i++){     
     power_int += analogRead(POWER_METER_PIN);
