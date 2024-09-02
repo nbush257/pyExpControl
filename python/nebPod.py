@@ -206,7 +206,7 @@ class Controller:
     def run_train(self,duration_sec,freq,amp,pulse_duration_sec,verbose=False):
         '''
         Run a train of opto pulses
-        duration: (float)  - Full train duration (s)
+        duration_sec: (float)  - Full train duration (s)
         freq: (float) - Stim frequency (Hz)
         amp: (float) - range from 0-1
         pulse_dur: (float) pulse duration (s)
@@ -340,6 +340,79 @@ class Controller:
         )
 
         return(label,'opto',params_out)
+    
+
+    @logger
+    @interval_timer
+    def phasic_stim_HB(self,phase,mode,n,duration_sec,intertrain_interval_sec=30.0,freq=None,pulse_duration_sec=None,verbose=False):
+        '''
+
+        ONLY INSPIRATORY HOLDS ARE IMPLEMENTED
+        Run HB stimulations that are triggered from the diaphragm activity
+        phase: ['e','i'] (Expiratory, Inspiratory) triggered stimulations
+        mode: ['h','t','p'] ('hold','train','pulse') - hold is a solid stimulation. Train is a high-frequency train. Pulse is a single pulse.
+        n : number of repititons
+        duration_sec: duration of stimulation window (typically ~10 for inspiration, 2-4 for expiration)
+        intertrain_interval_sec interval: time between stimulation windows
+        freq: (optional) frequency of pulse train if using train mode
+        pulse_duration_sec: (optional) Pulse duration if using "train" or "pulse" mode
+        '''
+        assert mode in ['h','t','p'], 'Stimulation mode {mode} not supported'
+        assert phase in ['e','i'], 'Stimulation trigger {phase} not supported'
+
+        phase_map = {'e':'exp','i':'insp'}
+        mode_map = {'h':'hold','t':'train','p':'pulse'}
+
+
+        # Handle the different modes
+        if mode =='h':
+            freq = None
+            pulse_duration_sec = None
+        if mode=='t':
+            assert freq is not None, ' frequency is needed for phasic  trains'
+            assert pulse_duration_sec is not None, 'pulse duration is needed for phasic  trains'
+            pulse_dur_ms = sec2ms(pulse_duration_sec)
+        if mode == 'p':
+            assert pulse_duration_sec is not None, 'pulse duration is needed for phasic single pulses'
+            pulse_dur_ms = sec2ms(pulse_duration_sec)
+            freq = None
+        if verbose:
+            print(f'Running HB phasic stims:{phase_map[phase]},{mode_map[mode]},{freq=},{pulse_duration_sec=}')
+        
+        
+        if n==1:
+            intertrain_interval_sec=0.0
+
+        intertrain_interval_ms = sec2ms(intertrain_interval_sec)
+        duration_ms = sec2ms(duration_sec)
+
+        self.empty_read_buffer()
+        self.serial_port.serialObject.write('a'.encode('utf-8'))
+        self.serial_port.serialObject.write('h'.encode('utf-8'))
+        self.serial_port.serialObject.write(phase.encode('utf-8'))
+        self.serial_port.serialObject.write(mode.encode('utf-8'))
+        self.serial_port.write(n,'uint8')
+        self.serial_port.write(duration_ms,'uint16')
+        self.serial_port.write(intertrain_interval_ms,'uint16')
+        if mode == 't':
+            self.serial_port.write(pulse_dur_ms,'uint8')
+            self.serial_port.write(int(freq),'uint8')
+        
+        if mode == 'p':
+            self.serial_port.write(pulse_dur_ms,'uint8')
+
+        self.block_until_read()
+
+        label=f'hering_breuer_phasic'
+        params_out = dict(
+            phase=phase_map[phase],
+            mode=mode_map[mode],
+            duration=duration_sec,
+            frequency = freq,
+            pulse_duration=pulse_duration_sec
+        )
+
+        return(label,'event',params_out)
     
 
     def poll_laser_power(self,amp,output='mw',verbose=False):
@@ -902,7 +975,7 @@ class Controller:
         self.stop_camera_trig()
         self.save_log()
     
-    def preroll(self,use_camera=True,gas='O2',settle_sec=None,set_olfactometer=True):
+    def preroll(self,use_camera=True,gas='O2',settle_sec=None,set_olfactometer=False):
         """
         Boilerplate commands to start an experiment.
         Sets the default laser amplitude.
@@ -914,7 +987,8 @@ class Controller:
         """        
         '''
         '''
-        self.settle_time_sec = settle_sec or self.settle_time_sec
+        if settle_sec is not None:
+            self.settle_time_sec = settle_sec
         print(f'Default presenting {gas}')
         # self.stop_camera_trig()
         # self.stop_recording()

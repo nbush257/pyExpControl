@@ -209,10 +209,10 @@ class ArduinoController(QWidget):
         self.train_freq_lineedit.setValidator(QDoubleValidator(0.0,40,0))
         self.train_freq_lineedit.textChanged.connect(self.update_train_freq)
         # Train duration
-        train_dur_label = QLabel('Train duration (0s-30s)')
+        train_dur_label = QLabel('Train duration (0s-120s)')
         self.train_dur_lineedit = QLineEdit()
         self.train_dur_lineedit.setText(f'{self.train_duration:.0f}')
-        self.train_dur_lineedit.setValidator(QDoubleValidator(0.0,30.0,1))
+        self.train_dur_lineedit.setValidator(QDoubleValidator(0.0,120.0,1))
         self.train_dur_lineedit.textChanged.connect(self.update_train_duration)
         # Pulse duration
         train_pulse_dur_label = QLabel('Pulse duration (ms)')
