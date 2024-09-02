@@ -229,6 +229,9 @@ void processCommandA() {
     case 'v':
       processCameraCommands();
       break;
+    case 'h':
+      runPhasic_HB();
+      break;
 }
 }
 
@@ -314,6 +317,89 @@ void runPhasic() {
       break;
 }
 }
+void runPhasic_HB() {
+  // Run phasic triggered Hering breuer from a serial input
+
+  char phase = pyControl.readChar();
+  char mode = pyControl.readChar();
+  int n = pyControl.readUint8();                     // Number of stim epochs
+  int duration = pyControl.readUint16();             // Epoch duration
+  int intertrain_interval = pyControl.readUint16();  // Time between stimulation periods
+
+
+  int pulse_dur = 0;
+  int freq = 0;
+
+  // TODO: allow for single pulses or trains at I-on, E-ON
+  // i,e for insp/exp
+  // h - hold, p - pulse, t - train
+  switch (phase) {
+    case 'e':  // Expiratory
+      // switch (mode){
+      //   case 'h':
+      //     cobalt.phasic_stim_exp(n,amp_f,duration,intertrain_interval);
+      //     break;
+      //   case 'p':
+      //     pulse_dur = pyControl.readUint8();
+      //     cobalt.phasic_stim_exp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+      //     break;
+      //   case 't':
+      //     pulse_dur = pyControl.readUint8();
+      //     freq = pyControl.readUint8();
+      //     cobalt.phasic_stim_exp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+      //     break;
+      // }
+      break;
+    case 'i':
+      switch (mode) {
+        case 'h':
+          _phasic_HB_insp(n, duration, intertrain_interval);
+          break;
+          // case 'p':
+          //   pulse_dur = pyControl.readUint8();
+          //   cobalt.phasic_stim_insp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+          //   break;
+          // case 't':
+          //   pulse_dur = pyControl.readUint8();
+          //   freq = pyControl.readUint8();
+          //   cobalt.phasic_stim_insp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+          //   break;
+      }
+      break;
+  }
+}
+
+void _phasic_HB_insp(uint n, uint dur_active,uint intertrial_interval) {
+
+  //Inspiratory triggered hering breuer stims
+  for (uint ii = 0; ii < n; ii++) {
+
+    bool stim_on = false;
+    tbox.hering_breuer_stop();
+    int ain_val = analogRead(cobalt.AIN_PIN);
+    int thresh_val = analogRead(cobalt.POT_PIN);
+    int thresh_down = int(float(thresh_val) * 0.9);
+
+    uint t_start = millis();
+    while ((millis() - t_start) <= dur_active) {
+      ain_val = analogRead(cobalt.AIN_PIN);
+      thresh_val = analogRead(cobalt.POT_PIN);
+      thresh_down = int(float(thresh_val) * 0.9);
+      if ((ain_val > thresh_val) & !stim_on) {
+        tbox.hering_breuer_start();
+        stim_on = true;
+      }
+      if ((ain_val < thresh_down) & stim_on) {
+        tbox.hering_breuer_stop();
+        stim_on = false;
+      }
+    }
+
+    if (stim_on) {tbox.hering_breuer_stop(); }
+    delay(intertrial_interval);
+  }
+}
+
 
 void processCommandM() {
   //TODO: TEST
