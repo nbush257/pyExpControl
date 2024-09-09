@@ -1,9 +1,37 @@
+
 """
 Pin mappings are generally handled by teensy firmware, so this should be general.
 
-Need to make a doc on how to add functionality to this (e.g., commands are serial commands and functions need to return dicts)
+When controller is instantiated, a log is started. It is a list of dicts that will get parsed into a pandas dataframe and saved as a .tsv:
+e.g.:
+| label           | category | start_time | end_time | param1 | param2 |
+|-----------------|----------|------------|----------|--------|--------|
+| start_recording | event    | 0          | 5        | None   | None   |
+| present_gas     | gas      | 5          | 305      | O2     | None   |
+| laser_train     | opto     | 305        | 307      | 20Hz   | 2s     |
+| laser_train     | opto     | 337        | 339      | 20Hz   | 2s     |
+| laser_train     | opto     | 367        | 369      | 20Hz   | 2s     |
+| laser_train     | opto     | 397        | 399      | 20Hz   | 2s     |
+| present_gas     | gas      | 579        | 879      | hypercapnia | None |
+| stop_recording  | event    | 879        | 880      | None   | None   |
+
+Methods for the controller can have decoraters to automatically get start (and optionally stop) times and append to the log.
+
+e.g.:
+    @interval_timer: appends start and stop times to the output of the function
+    @event_timer: appends only the start time to the output of the function
+    @logger: appends the output of the function to the log. Optionally (and by default) saves the log to a .tsv file on each call.
+
+Example:
+    @logger
+    @interval_timer
+    def function(self, param1, param2):
+        # do something
+
+        # parameters to save to the log
+        params = dict(param1=param1, param2=param2)
+        return (label, category, params)
 """
-# TODO: Camera control
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
 from ArCOM import ArCOMObject
 import time
@@ -297,6 +325,130 @@ class Controller:
         time.sleep(duration)
         self.end_hb(log_enabled=False)
         return ("hering_breuer", "event", {"duration": duration})
+    
+    @logger
+    @interval_timer
+    def phasic_stim_HB(
+        self,
+        phase,
+        mode,
+        n,
+        duration_sec,
+        intertrain_interval_sec=30.0,
+        freq=None,
+        pulse_duration_sec=None,
+        verbose=False,
+    ):
+        """
+        Run Hering Breuer (HB) stimulations that are triggered from the diaphragm activity.
+
+        ONLY INSPIRATORY HOLDS ARE IMPLEMENTED
+
+        Args:
+            phase (str): Phase of the diaphragm activity. Must be 'e' (Expiratory) or 'i' (Inspiratory).
+            mode (str): Stimulation mode. Must be 'h' (hold), 't' (train), or 'p' (pulse).
+            n (int): Number of repetitions.
+            duration_sec (float): Duration of the stimulation window in seconds.
+            intertrain_interval_sec (float, optional): Time between stimulation windows in seconds. Defaults to 30.0.
+            freq (float, optional): Frequency of pulse train if using train mode. Defaults to None.
+            pulse_duration_sec (float, optional): Pulse duration if using "train" or "pulse" mode. Defaults to None.
+            verbose (bool, optional): Verbosity flag. Defaults to False.
+
+        Returns:
+            dict: Output dictionary with function call details.
+        """
+        assert mode in ["h", "t", "p"], f"Stimulation mode {mode} not supported"
+        assert phase in ["e", "i"], f"Stimulation trigger {phase} not supported"
+        assert mode == "h", "Only hold mode is implemented for HB stimulations"
+        assert (
+            phase == "i"
+        ), "Only inspiratory holds are implemented for HB stimulations"
+
+        phase_map = {"e": "exp", "i": "insp"}
+        mode_map = {"h": "hold", "t": "train", "p": "pulse"}
+
+        # Handle the different modes
+        if mode == "h":
+            freq = None
+            pulse_duration_sec = None
+        if mode == "t":
+            assert freq is not None, " frequency is needed for phasic  trains"
+            assert (
+                pulse_duration_sec is not None
+            ), "pulse duration is needed for phasic  trains"
+            pulse_dur_ms = sec2ms(pulse_duration_sec)
+        if mode == "p":
+            assert (
+                pulse_duration_sec is not None
+            ), "pulse duration is needed for phasic single pulses"
+            pulse_dur_ms = sec2ms(pulse_duration_sec)
+            freq = None
+        if verbose:
+            print(
+                f"Running HB phasic stims:{phase_map[phase]},{mode_map[mode]},{freq=},{pulse_duration_sec=}"
+            )
+
+        if n == 1:
+            intertrain_interval_sec = 0.0
+
+        intertrain_interval_ms = sec2ms(intertrain_interval_sec)
+        duration_ms = sec2ms(duration_sec)
+
+        self.empty_read_buffer()
+        self.serial_port.serialObject.write("a".encode("utf-8"))
+        self.serial_port.serialObject.write("h".encode("utf-8"))
+        self.serial_port.serialObject.write(phase.encode("utf-8"))
+        self.serial_port.serialObject.write(mode.encode("utf-8"))
+        self.serial_port.write(n, "uint8")
+        self.serial_port.write(duration_ms, "uint16")
+        self.serial_port.write(intertrain_interval_ms, "uint16")
+        if mode == "t":
+            self.serial_port.write(pulse_dur_ms, "uint8")
+            self.serial_port.write(int(freq), "uint8")
+
+        if mode == "p":
+            self.serial_port.write(pulse_dur_ms, "uint8")
+
+        self.block_until_read()
+
+        label = "hering_breuer_phasic"
+        params_out = dict(
+            phase=phase_map[phase],
+            mode=mode_map[mode],
+            duration=duration_sec,
+            frequency=freq,
+            pulse_duration=pulse_duration_sec,
+        )
+
+        return (label, "event", params_out)
+
+    def init_cobalt(
+        self, mode="S", power_meter_pin=16, null_voltage=0.5, verbose=False
+    ):
+        """
+        Initialize or modify the cobalt object in the Arduino.
+
+        This method is particularly useful if you want to switch between sigmoidal and other modes.
+
+        Args:
+            mode (str, optional): Mode to set for the cobalt object. Defaults to 'S'. Can be 'S' (sigmoidal) or 'B' (binary).
+            power_meter_pin (int, optional): Pin number for the power meter. Defaults to 16.
+            null_voltage (float, optional): Null voltage value. Defaults to 0.5.
+            verbose (bool, optional): Verbosity flag. If True, prints the initialization details. Defaults to False.
+
+        Returns:
+            None
+        """
+        null_voltage_uint8 = int(255 * null_voltage)
+        self.serial_port.serialObject.write("c".encode("utf-8"))
+        self.serial_port.serialObject.write("m".encode("utf-8"))
+        self.serial_port.serialObject.write(mode.encode("utf-8"))
+        self.serial_port.write(power_meter_pin, "uint8")
+        self.serial_port.write(null_voltage_uint8, "uint8")
+        self.block_until_read()
+        print(
+            f"initialized cobalt with mode {mode} and power meter pin {power_meter_pin}"
+        ) if verbose else None
 
     @logger
     @event_timer
@@ -509,101 +661,46 @@ class Controller:
 
         return (label, "opto", params_out)
 
-    @logger
-    @interval_timer
-    def phasic_stim_HB(
-        self,
-        phase,
-        mode,
-        n,
-        duration_sec,
-        intertrain_interval_sec=30.0,
-        freq=None,
-        pulse_duration_sec=None,
-        verbose=False,
-    ):
+    def turn_on_laser(self, amp, verbose=False):
         """
-        Run Hering Breuer (HB) stimulations that are triggered from the diaphragm activity.
-
-        ONLY INSPIRATORY HOLDS ARE IMPLEMENTED
+        Turn on the laser with the specified amplitude.
 
         Args:
-            phase (str): Phase of the diaphragm activity. Must be 'e' (Expiratory) or 'i' (Inspiratory).
-            mode (str): Stimulation mode. Must be 'h' (hold), 't' (train), or 'p' (pulse).
-            n (int): Number of repetitions.
-            duration_sec (float): Duration of the stimulation window in seconds.
-            intertrain_interval_sec (float, optional): Time between stimulation windows in seconds. Defaults to 30.0.
-            freq (float, optional): Frequency of pulse train if using train mode. Defaults to None.
-            pulse_duration_sec (float, optional): Pulse duration if using "train" or "pulse" mode. Defaults to None.
-            verbose (bool, optional): Verbosity flag. Defaults to False.
-
-        Returns:
-            dict: Output dictionary with function call details.
+            amp (float): Amplitude of the laser, a float between 0-1 (v).
+            verbose (bool, optional): Verbosity flag. If True, prints the amplitude. Defaults to False.
         """
-        assert mode in ["h", "t", "p"], f"Stimulation mode {mode} not supported"
-        assert phase in ["e", "i"], f"Stimulation trigger {phase} not supported"
-        assert mode == "h", "Only hold mode is implemented for HB stimulations"
-        assert (
-            phase == "i"
-        ), "Only inspiratory holds are implemented for HB stimulations"
-
-        phase_map = {"e": "exp", "i": "insp"}
-        mode_map = {"h": "hold", "t": "train", "p": "pulse"}
-
-        # Handle the different modes
-        if mode == "h":
-            freq = None
-            pulse_duration_sec = None
-        if mode == "t":
-            assert freq is not None, " frequency is needed for phasic  trains"
-            assert (
-                pulse_duration_sec is not None
-            ), "pulse duration is needed for phasic  trains"
-            pulse_dur_ms = sec2ms(pulse_duration_sec)
-        if mode == "p":
-            assert (
-                pulse_duration_sec is not None
-            ), "pulse duration is needed for phasic single pulses"
-            pulse_dur_ms = sec2ms(pulse_duration_sec)
-            freq = None
-        if verbose:
-            print(
-                f"Running HB phasic stims:{phase_map[phase]},{mode_map[mode]},{freq=},{pulse_duration_sec=}"
-            )
-
-        if n == 1:
-            intertrain_interval_sec = 0.0
-
-        intertrain_interval_ms = sec2ms(intertrain_interval_sec)
-        duration_ms = sec2ms(duration_sec)
-
-        self.empty_read_buffer()
-        self.serial_port.serialObject.write("a".encode("utf-8"))
-        self.serial_port.serialObject.write("h".encode("utf-8"))
-        self.serial_port.serialObject.write(phase.encode("utf-8"))
-        self.serial_port.serialObject.write(mode.encode("utf-8"))
-        self.serial_port.write(n, "uint8")
-        self.serial_port.write(duration_ms, "uint16")
-        self.serial_port.write(intertrain_interval_ms, "uint16")
-        if mode == "t":
-            self.serial_port.write(pulse_dur_ms, "uint8")
-            self.serial_port.write(int(freq), "uint8")
-
-        if mode == "p":
-            self.serial_port.write(pulse_dur_ms, "uint8")
-
+        print(f"Turning on laser at amp: {amp}") if verbose else None
+        amp_int = self._amp2int(amp)
+        self.serial_port.serialObject.write("o".encode("utf-8"))
+        self.serial_port.serialObject.write("o".encode("utf-8"))
+        self.serial_port.write(amp_int, "uint8")
         self.block_until_read()
 
-        label = "hering_breuer_phasic"
-        params_out = dict(
-            phase=phase_map[phase],
-            mode=mode_map[mode],
-            duration=duration_sec,
-            frequency=freq,
-            pulse_duration=pulse_duration_sec,
-        )
+    def turn_off_laser(self, amp, verbose=False):
+        """
+        Turn off the laser from the specified amplitude.
 
-        return (label, "event", params_out)
+        Args:
+            amp (float): Amplitude of the laser, a float between 0-1 (v).
+            verbose (bool, optional): Verbosity flag. If True, prints the amplitude. Defaults to False.
+        """
+        print(f"Turning off laser from amp: {amp}") if verbose else None
+        amp_int = self._amp2int(amp)
+        self.serial_port.serialObject.write("o".encode("utf-8"))
+        self.serial_port.serialObject.write("x".encode("utf-8"))
+        self.serial_port.write(amp_int, "uint8")
+        self.block_until_read()
+
+    def set_max_milliwattage(self, val):
+        """
+        Set the maximum milliwattage for calibrating the laser.
+
+        This value is read from the Thorlabs light meter and is used to convert the voltage output from Thorlabs to milliwatts.
+
+        Args:
+            val (float): The maximum milliwattage value to set.
+        """
+        self.MAX_MILLIWATTAGE = val
 
     def poll_laser_power(self, amp, output="mw", verbose=False):
         """
@@ -708,47 +805,6 @@ class Controller:
             plt.show()
 
         return (amps_to_test, powers)
-
-    def set_max_milliwattage(self, val):
-        """
-        Set the maximum milliwattage for calibrating the laser.
-
-        This value is read from the Thorlabs light meter and is used to convert the voltage output from Thorlabs to milliwatts.
-
-        Args:
-            val (float): The maximum milliwattage value to set.
-        """
-        self.MAX_MILLIWATTAGE = val
-
-    def turn_on_laser(self, amp, verbose=False):
-        """
-        Turn on the laser with the specified amplitude.
-
-        Args:
-            amp (float): Amplitude of the laser, a float between 0-1 (v).
-            verbose (bool, optional): Verbosity flag. If True, prints the amplitude. Defaults to False.
-        """
-        print(f"Turning on laser at amp: {amp}") if verbose else None
-        amp_int = self._amp2int(amp)
-        self.serial_port.serialObject.write("o".encode("utf-8"))
-        self.serial_port.serialObject.write("o".encode("utf-8"))
-        self.serial_port.write(amp_int, "uint8")
-        self.block_until_read()
-
-    def turn_off_laser(self, amp, verbose=False):
-        """
-        Turn off the laser from the specified amplitude.
-
-        Args:
-            amp (float): Amplitude of the laser, a float between 0-1 (v).
-            verbose (bool, optional): Verbosity flag. If True, prints the amplitude. Defaults to False.
-        """
-        print(f"Turning off laser from amp: {amp}") if verbose else None
-        amp_int = self._amp2int(amp)
-        self.serial_port.serialObject.write("o".encode("utf-8"))
-        self.serial_port.serialObject.write("x".encode("utf-8"))
-        self.serial_port.write(amp_int, "uint8")
-        self.block_until_read()
 
     @logger
     @interval_timer
@@ -1148,35 +1204,6 @@ class Controller:
         print("Done settling") if verbose else None
         return ("probe_settle", "event", {})
 
-    def init_cobalt(
-        self, mode="S", power_meter_pin=16, null_voltage=0.5, verbose=False
-    ):
-        """
-        Initialize or modify the cobalt object in the Arduino.
-
-        This method is particularly useful if you want to switch between sigmoidal and other modes.
-
-        Args:
-            mode (str, optional): Mode to set for the cobalt object. Defaults to 'S'. Can be 'S' (sigmoidal) or 'B' (binary).
-            power_meter_pin (int, optional): Pin number for the power meter. Defaults to 16.
-            null_voltage (float, optional): Null voltage value. Defaults to 0.5.
-            verbose (bool, optional): Verbosity flag. If True, prints the initialization details. Defaults to False.
-
-        Returns:
-            None
-        """
-        # TODO: test null voltage modification
-        null_voltage_uint8 = int(255 * null_voltage)
-        self.serial_port.serialObject.write("c".encode("utf-8"))
-        self.serial_port.serialObject.write("m".encode("utf-8"))
-        self.serial_port.serialObject.write(mode.encode("utf-8"))
-        self.serial_port.write(power_meter_pin, "uint8")
-        self.serial_port.write(null_voltage_uint8, "uint8")
-        self.block_until_read()
-        print(
-            f"initialized cobalt with mode {mode} and power meter pin {power_meter_pin}"
-        ) if verbose else None
-
     def plot_log(self):
         """
         Create a graphical representation of the expriment events.
@@ -1422,6 +1449,7 @@ class Controller:
 
         # Assumes the first valve is blank
         if set_olfactometer:
+            print('Initializing olfactometer. If the olfactometer is not connected, this will hang')
             if self.odor_map is None:
                 print(
                     "WARNING! No odor map supplied. Olfactometer only works with supplied valve numbers"
