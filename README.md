@@ -4,7 +4,9 @@ It is influenced by the Bpod control from Kepecs and Brody labs and uses the ArC
 
 You will need to include the "cobalt-control" and "Tbox" libraries (.cpp, .h) in your arduino framework so they can be referenced in the firmware sketch.
 
-
+First, install dependencies
+`pip install -r "D:\pyExpControl\python\requirements.txt"`
+or wherever you put the pyExpControl directory
 
 #### Usage for gui:
 ```

@@ -31,20 +31,16 @@ PULSE_DUR = 0.01
 
 # All things to run go in here. Need to pass the nebPod controller object to main.
 def main(controller):
-    controller.get_logname_from_user()
-    controller.get_laser_amp_from_user()
-    AMP = controller.laser_command_amp
 
-
-    # Start recording
-    controller.start_recording()
+    controller.preroll(gas='O2', use_camera=False, set_olfactometer=False,settle_sec=5)
     controller.present_gas('O2',BASELINE_TIME)
+    amp = controller.laser_command_amp
 
     # Pulses
     pulse_dur = PULSE_DUR
     for ii in range(N_PULSE_STIMS):
         controller.wait(INTERPULSE_INTERVAL,msg=f'Pulse {ii+1} of {N_PULSE_STIMS}; Duration: {pulse_dur}')
-        controller.run_pulse(pulse_dur,AMP,verbose=True)
+        controller.run_pulse(pulse_dur,amp,verbose=True)
     controller.play_ttls()
 
     # Stop recording
