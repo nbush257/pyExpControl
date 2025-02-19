@@ -1115,8 +1115,8 @@ class Controller:
         end_times = np.concatenate(
             [gasses["start_time"][1:].values, [time.time() - base_time]]
         )
-        gasses.iloc[:]["end_time"] = end_times
-        log_df.loc[gasses.index] = gasses
+        gasses.loc[:, "end_time"] = end_times
+        log_df.loc[gasses.index, :] = gasses
 
         log_df.to_csv(save_fn, sep="\t")
         if verbose:
@@ -1467,6 +1467,50 @@ class Controller:
         if use_camera:
             time.sleep(0.5)
             self.start_camera_trig()
+
+
+    @logger
+    @event_timer
+    def set_gpio(self, pin, mode, category ='event',pulse_duration_sec=0.1, verbose=True):
+        """
+        Set the state of a GPIO pin. (sequential from 0. Letting the teensy firmware deal with mapping the pin here to the actual pin on the teensy)
+
+        Args:
+            pin (int): The GPIO pin number to set.
+            mode (str): The mode to set the pin to. Can be 'pulse', 'high', or 'low'.
+            category (str, optional): The category of the event for the logger. Defaults to 'event'.
+            verbose (bool, optional): Verbosity flag. If True, prints the pin number and state. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing:
+                - label (str): 'set_gpio'
+                - category (str): 'event'
+                - params_out (dict): Dictionary with 'pin' and 'state'.
+        """
+        modes = ["pulse", "high", "low"]
+        pins = list(range(8))
+        assert mode in modes, f"Mode must be one of {modes}"
+        mode = mode[0].lower()
+        assert pin in pins, f"Pin must be one of {pins}"
+
+        dur_int = sec2ms(pulse_duration_sec)
+        pulse_duration_sec = pulse_duration_sec if mode == "p" else None
+
+        if verbose:
+            if mode == "p":
+                print(f"Pulsing GPIO pin {pin} for {pulse_duration_sec} seconds")
+            else:
+                print(f"Setting GPIO pin {pin} to {mode}")
+
+        self.serial_port.serialObject.write("m".encode("utf-8"))
+        self.serial_port.serialObject.write(mode.encode("utf-8"))
+        self.serial_port.write(dur_int, "uint16")
+        self.serial_port.write(pin, "uint8")
+        self.block_until_read()
+
+        label = "gpio"
+        params_out = dict(pin=pin, mode=mode,duration=pulse_duration_sec)
+        return (label, category, params_out)
 
 
 def sec2ms(val):

@@ -15,6 +15,10 @@ Tbox tbox;
 const int numValves = 5;  // Number of gas valves to be included in the valve control. These should only have one open at a time
 int valves[numValves] = {0, 1, 2, 3, 4};  // Pins that the valves are on
 const int statusPin = 22;
+
+const int numGpPins = 2;
+int gpPins[numGpPins] = {17,11};
+
 void setup() {
   SerialUSB.begin(115200);
   Serial2.begin(115200);
@@ -31,6 +35,13 @@ void setup() {
   digitalWrite(statusPin,HIGH);
   delay(100);
   digitalWrite(statusPin,LOW);
+
+// Set GP output pins low
+  for (int i = 0; i < numGpPins; i++) {
+    pinMode(gpPins[i], OUTPUT);
+    digitalWrite(gpPins[i],LOW);
+  }
+  
 
   cobalt.begin();
   tbox.begin();
@@ -234,6 +245,27 @@ void processCommandA() {
       break;
 }
 }
+//Manual
+void processCommandM() {
+  char subcommand = pyControl.readChar();
+  int duration = pyControl.readUint16();
+  int p = pyControl.readUint8();
+  int usePin = gpPins[p];
+  switch (subcommand) {
+    case 'p':
+      digitalWrite(usePin,HIGH);
+      delayMicroseconds(duration*1000);
+      digitalWrite(usePin,LOW);
+      break;
+    case 'l':
+      digitalWrite(usePin,LOW);
+      break;
+    case 'h':
+      digitalWrite(usePin,HIGH);
+      break;
+}
+}
+
 
 void processCameraCommands(){
   char subcommand = pyControl.readChar();
@@ -401,13 +433,6 @@ void _phasic_HB_insp(uint n, uint dur_active,uint intertrial_interval) {
 }
 
 
-void processCommandM() {
-  //TODO: TEST
-  int pin = pyControl.readUint8();
-  int val = pyControl.readUint8();
-  bool val_bool = bool(val); 
-  digitalWrite(pin, val_bool);
-}
 
 
 
