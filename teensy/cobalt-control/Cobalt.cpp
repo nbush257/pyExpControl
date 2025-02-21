@@ -164,14 +164,12 @@ void Cobalt::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial
 
   bool laser_on=false;
   _turn_off(NULL_VOLTAGE);
-  int ain_val = analogRead(AIN_PIN);
-  int thresh_val =  analogRead(POT_PIN);
-  int thresh_down = int(float(thresh_val)*0.9);
+
   
   uint t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
-    thresh_val =  analogRead(POT_PIN);
+    thresh_val =  get_thresh();
     thresh_down = int(float(thresh_val)*0.9);
     if ((ain_val>thresh_val) & !laser_on){
       _turn_on(amp);
@@ -193,16 +191,13 @@ void Cobalt::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint inte
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
-  int ain_val = analogRead(AIN_PIN);
-  int thresh_val =  analogRead(POT_PIN);
-  int thresh_down = int(float(thresh_val)*0.9);
   
   uint t_start = millis();
   bool have_stimmed = false;
 
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
-    thresh_val =  analogRead(POT_PIN);
+    thresh_val =  get_thresh();
     thresh_down = int(float(thresh_val)*0.9);
     if ((ain_val>thresh_val) & !have_stimmed){
       pulse(amp, pulse_dur);
@@ -223,16 +218,13 @@ void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_m
   _turn_off(NULL_VOLTAGE);
   bool is_insp=false;
     
-  int ain_val = analogRead(AIN_PIN);
-  int thresh_val =  analogRead(POT_PIN);
-  int thresh_down = int(float(thresh_val)*0.9);
   uint full_duty_time = (1000.0/freq_hz)*1000; //in microseconds
 
   uint last_stim_on = micros();
   uint t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
-    thresh_val =  analogRead(POT_PIN);
+    thresh_val =  get_thresh();
     thresh_down = int(float(thresh_val)*0.9);
 
     if ((ain_val>thresh_val)){
@@ -263,14 +255,10 @@ void Cobalt::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_
   _turn_off(NULL_VOLTAGE);
   bool laser_on=false;
     
-  int ain_val = analogRead(AIN_PIN);
-  int thresh_val =  analogRead(POT_PIN);
-  int thresh_down = int(float(thresh_val)*0.9);
-  
   uint t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
-    thresh_val =  analogRead(POT_PIN);
+    thresh_val =  get_thresh();
     thresh_down = int(float(thresh_val)*0.9);
     if ((ain_val>thresh_val) & laser_on){
       _turn_off(amp);
@@ -291,15 +279,13 @@ void Cobalt::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint inter
 
   _turn_off(NULL_VOLTAGE);
     
-  int ain_val = analogRead(AIN_PIN);
-  int thresh_val =  analogRead(POT_PIN);
-  int thresh_down = int(float(thresh_val)*0.9);
+
   bool have_stimmed=false;
 
   uint t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
-    thresh_val =  analogRead(POT_PIN);
+    thresh_val =  get_thresh();
     thresh_down = int(float(thresh_val)*0.9);
     if ((ain_val>thresh_val) & have_stimmed){
       have_stimmed=false;
@@ -320,16 +306,14 @@ void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms
   _turn_off(NULL_VOLTAGE);
   bool is_insp=false;
     
-  int ain_val = analogRead(AIN_PIN);
-  int thresh_val =  analogRead(POT_PIN);
-  int thresh_down = int(float(thresh_val)*0.9);
+
   uint full_duty_time = (1000.0/freq_hz)*1000; //in microseconds
 
   uint last_stim_on = micros();
   uint t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
-    thresh_val =  analogRead(POT_PIN);
+    thresh_val =  get_thresh();
     thresh_down = int(float(thresh_val)*0.9);
 
     if ((ain_val>thresh_val)){
@@ -364,4 +348,10 @@ int Cobalt::poll_laser_power(float amp){
   uint average = power_int /20;
   _turn_off(amp);
   return average;
+}
+
+int Cobalt::get_thresh(){
+  int readin = analogRead(POT_PIN);
+  thresh_val = map(readin,0,8191,4000,5500);
+  return thresh_val;
 }

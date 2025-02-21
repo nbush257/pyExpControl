@@ -23,9 +23,13 @@ class Cobalt
     void phasic_stim_exp(uint n, float amp,uint dur_active,uint intertrial_interval);
     void phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval);
     void phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur);
+    int get_thresh();
     int LASER_PIN=A14; // A14 for teensy 3.2
     int AIN_PIN=23;
     int POT_PIN=15;
+    int thresh_val=0;
+    int thresh_down=0;
+    int ain_val=0;
     int POWER_METER_PIN = A2; // Pin to read from the thorlabs powermeter
     char MODE='S';
     int DAC_RESOLUTION=12;
