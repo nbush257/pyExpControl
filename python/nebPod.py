@@ -33,6 +33,9 @@ Example:
         return (label, category, params)
 """
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
+# TODO: incorporate spikeglx  run name getting and setting
+    #TODO: Get UI to decide if we want to increment the gate
+    #TODO: test and clean up the directory sglx directory saving
 from ArCOM import ArCOMObject
 import time
 import matplotlib.pyplot as plt
@@ -46,10 +49,20 @@ import os
 import sys
 from pathlib import Path
 
+SUBJECT_DIR = Path(r"D:\sglx_data")
+
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
 
+sglx_api_path = Path(r'C:\helpers\SpikeGLX-CPP-SDK\Windows\Python\sglx_pkg')
+os.environ["PATH"] = str(sglx_api_path) + os.pathsep + os.environ["PATH"]
+
+sys.path.append(str(sglx_api_path))
+SGLX_ADDR = "localhost"
+SGLX_PORT = 4142
+from sglx import *
+from ctypes import byref, POINTER, c_int, c_short, c_bool, c_char_p
 
 def interval_timer(func):
     """
@@ -225,6 +238,20 @@ class Controller:
         )  # Initialize the laser controller object
         self.laser_command_amp = None
         self.odor_map = None
+        self.increment_gate=True
+        self.sglx_handle = None
+        self.subjects_dir = SUBJECT_DIR
+
+    def connect_to_spikeglx(self):
+        """
+        Connect to the SpikeGLX server.
+        """
+        self.sglx_handle = c_sglx_createHandle()
+        ok = c_sglx_connect( self.sglx_handle, SGLX_ADDR.encode(), SGLX_PORT )
+        if ok:
+            print("Connected to SpikeGLX")
+        else:
+            print("Failed to connect to SpikeGLX")
 
     @logger
     @event_timer
@@ -1269,6 +1296,114 @@ class Controller:
             f"_cibbrig_log.table.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.tsv"
         )
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+
+
+    def get_gates(self):
+        """
+        Get the number of gates that have already been recorded
+        """
+        gates = list(self.subject_dir.glob(f"{self.runname}_g*"))
+        gate_nums = [int(gate.name.split("_g")[-1]) for gate in gates]
+        return (gates,gate_nums)
+
+    def get_logname_from_sglx(self):
+        """ 
+        Use the spikeGLX API to get run, gate, and trigger info
+        """
+        if self.sglx_handle is None:
+            self.connect_to_sglx()
+
+        gates,gate_nums = self.get_gates()
+        n_gates = len(gates)
+        runname = self.get_runname()
+        data_dir = self.get_subject_dir()
+
+        if n_gates == 0:
+            g_suffix = 0
+            t_suffix = 0
+        elif self.increment_gate:
+            g_suffix = n_gates
+            t_suffix = 0
+        else:
+            g_suffix = n_gates-1
+            t_suffix = self.get_last_trigger(g_suffix)
+
+        # Get the destination of the gate
+        gate_dest = data_dir.joinpath(f'{runname}_g{g_suffix}')
+
+        self.log_filename = (
+            f"_cibbrig_log.table.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.tsv"
+        )
+        print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+    
+    def get_last_trigger(self, gate_num):
+        """
+        Get the last trigger that was recorded in a gate
+        """
+        gates,gate_nums = self.get_gates()
+        this_gate = gates[gate_nums.index(gate_num)]
+        triggers = list(this_gate.rglob(f"*_t*"))
+        # Use re to find the strings between "-t" and "."
+        trigger_nums = [int(re.search(r'(?<=_t)\d+(?=\.)',trigger.name).group()) for trigger in triggers]
+        trigger_nums = set(trigger_nums)
+        last_trigger = max(trigger_nums)
+        return last_trigger
+
+    def start_recording_sglx(self):
+        """
+        Start recording using the spikeGLX API
+        """
+
+        # Enable recording
+        ok = c_sglx_setRecordingEnable(handle,c_bool(True))
+
+        # Send command to start recording
+        gates,gate_nums = self.get_gates()
+        n_gates = len(gates)
+        if n_gates == 0 or self.increment_gate:
+            ok = c_sglx_triggerGT(handle, c_int(1), c_int(1)) 
+        else:
+            ok = c_sglx_triggerGT(handle, c_int(-1), c_int(1)) 
+    
+    def stop_recording_sglx(self):
+        """
+        Stop recording using the spikeGLX API
+        """
+        ok = c_sglx_triggerGT(handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
+
+    def get_runname(self):
+        """
+        Get the run name from the spikeGLX API
+        """
+        run = c_char_p()
+        ok = c_sglx_getRunName(byref(run), self.sglx_handle )
+        self.runname = run.value.decode()
+        return self.runname
+
+    def get_subject_dir(self):
+        """
+        Get the subject directory from the spikeGLX API where all the gates will be saved
+        If the data directory is not the runname, create a new folder with the runname 
+        and set the data directory for sglx
+        """
+
+        # Get the data directory from sglx
+        data_dir = c_char_p()
+        ok = c_sglx_getDataDir(byref(data_dir), self.sglx_handle,c_int(0))
+        data_dir = Path(data_dir.value.decode())
+        runname = self.get_runname()
+
+        # If the data directory folder is not the runname, create a new folder with the runname
+        if data_dir.name != runname:
+            subject_dir = data_dir.joinpath(runname)
+            subject_dir.mkdir(exist_ok=True)
+
+            # Set the data directory for sglx
+            c_subject_dir  = c_char_p(str(subject_dir).encode())
+            ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_subject_dir)
+
+        self.subject_dir = subject_dir
+        return self.subject_dir
 
     def get_laser_amp_from_user(self):
         """
