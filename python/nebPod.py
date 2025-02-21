@@ -36,6 +36,8 @@ Example:
 # TODO: incorporate spikeglx  run name getting and setting
     #TODO: Get UI to decide if we want to increment the gate
     #TODO: test and clean up the directory sglx directory saving
+import sys
+sys.path.append('D:/pyExpControl/ArCOM/Python3')
 from ArCOM import ArCOMObject
 import time
 import matplotlib.pyplot as plt
@@ -1355,21 +1357,21 @@ class Controller:
         """
 
         # Enable recording
-        ok = c_sglx_setRecordingEnable(handle,c_bool(True))
+        ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
 
         # Send command to start recording
         gates,gate_nums = self.get_gates()
         n_gates = len(gates)
         if n_gates == 0 or self.increment_gate:
-            ok = c_sglx_triggerGT(handle, c_int(1), c_int(1)) 
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1)) 
         else:
-            ok = c_sglx_triggerGT(handle, c_int(-1), c_int(1)) 
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1)) 
     
     def stop_recording_sglx(self):
         """
         Stop recording using the spikeGLX API
         """
-        ok = c_sglx_triggerGT(handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
+        ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
 
     def get_runname(self):
         """
@@ -1401,6 +1403,8 @@ class Controller:
             # Set the data directory for sglx
             c_subject_dir  = c_char_p(str(subject_dir).encode())
             ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_subject_dir)
+        else:
+            subject_dir = data_dir
 
         self.subject_dir = subject_dir
         return self.subject_dir
