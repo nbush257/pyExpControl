@@ -46,7 +46,7 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 import datetime
-import functools
+import re
 import os
 import sys
 from pathlib import Path
@@ -156,7 +156,7 @@ def logger(func):
         function: The wrapped function with logging functionality.
     """
 
-    def wrapper(self, *args, log_enabled=True, **kwargs):
+    def wrapper(self, *args, log_enabled=True,**kwargs):
         result = func(self, *args, **kwargs)
         if log_enabled:
             self.log.append(result)
@@ -230,7 +230,7 @@ class Controller:
         self.rec_start_time = None
         self.rec_stop_time = None
         self.gate_dest = None
-        self.gate_dest_default = "D:/sglx_data"
+        self.gate_dest_default = SUBJECT_DIR
         self.log_filename = None
         self.init_time = time.time()
         if cobalt_mode == "B":
@@ -242,7 +242,6 @@ class Controller:
         self.odor_map = None
         self.increment_gate=True
         self.sglx_handle = None
-        self.subjects_dir = SUBJECT_DIR
 
     def connect_to_spikeglx(self):
         """
@@ -1117,14 +1116,14 @@ class Controller:
         Save the log to a tab-separated file.
 
         Args:
-            path (str or Path, optional): Path to save the log file. Defaults to the gate destination or D:/sglx_data.
+            path (str or Path, optional): Path to save the log file. Defaults to the gate destination or SUBJECT_DIR
             filename (str, optional): Filename to save the log as. Defaults to self.log_filename.
             verbose (bool, optional): Verbosity flag. If True, prints the save location. Defaults to True.
 
         Returns:
             None
         """
-        path = self.gate_dest or path or Path(r"D:/sglx_data")
+        path = self.gate_dest or path or SUBJECT_DIR
         now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         filename = self.log_filename or filename
         if filename is None:
@@ -1148,6 +1147,7 @@ class Controller:
         log_df.loc[gasses.index, :] = gasses
 
         log_df.to_csv(save_fn, sep="\t")
+
         if verbose:
             print(f"Log saved to {save_fn}")
 
@@ -1297,6 +1297,7 @@ class Controller:
         self.log_filename = (
             f"_cibbrig_log.table.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.tsv"
         )
+        self.gate_dest.mkdir(exist_ok=True)
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
 
@@ -1308,31 +1309,33 @@ class Controller:
         gate_nums = [int(gate.name.split("_g")[-1]) for gate in gates]
         return (gates,gate_nums)
 
-    def get_logname_from_sglx(self):
+    def get_logname_from_sglx(self,increment_gate=True):
         """ 
         Use the spikeGLX API to get run, gate, and trigger info
         """
         if self.sglx_handle is None:
             self.connect_to_sglx()
 
+        data_dir = self.get_subject_dir()
         gates,gate_nums = self.get_gates()
         n_gates = len(gates)
         runname = self.get_runname()
-        data_dir = self.get_subject_dir()
 
         if n_gates == 0:
             g_suffix = 0
             t_suffix = 0
-        elif self.increment_gate:
+        elif increment_gate:
             g_suffix = n_gates
             t_suffix = 0
         else:
             g_suffix = n_gates-1
-            t_suffix = self.get_last_trigger(g_suffix)
+            t_suffix = self.get_last_trigger(g_suffix)+1
 
         # Get the destination of the gate
-        gate_dest = data_dir.joinpath(f'{runname}_g{g_suffix}')
+        self.gate_dest = data_dir.joinpath(f'{runname}_g{g_suffix}')
+        self.gate_dest.mkdir(exist_ok=True)
 
+        # Set the log filename
         self.log_filename = (
             f"_cibbrig_log.table.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.tsv"
         )
@@ -1351,27 +1354,50 @@ class Controller:
         last_trigger = max(trigger_nums)
         return last_trigger
 
-    def start_recording_sglx(self):
+    @logger
+    @event_timer
+    def start_recording_sglx(self,increment_gate=True,silent=True,verbose=True):
         """
         Start recording using the spikeGLX API
         """
+        self.log=[] # Reset the log.
+        self.get_logname_from_sglx(increment_gate=increment_gate)
 
         # Enable recording
         ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
 
-        # Send command to start recording
         gates,gate_nums = self.get_gates()
         n_gates = len(gates)
-        if n_gates == 0 or self.increment_gate:
+
+        self.play_alert() if not silent else None
+
+        # Send command to start recording
+        if n_gates == 0 or increment_gate:
             ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1)) 
         else:
             ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1)) 
+        self.rec_start_time = time.time()
+        print("=" * 50 + "\nStarting recording!\n" + "=" * 50) if verbose else None
+        time.sleep(0.001)
+        return ("rec_start", "event", {})
     
-    def stop_recording_sglx(self):
+    @logger
+    @event_timer
+    def stop_recording_sglx(self,verbose=True,reset_to_O2=False,silent=True):
         """
         Stop recording using the spikeGLX API
         """
+        print("=" * 50 + "\nStopping recording!\n" + "=" * 50) if verbose else None
+        self.play_alert() if not silent else None
+
         ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
+        self.rec_stop_time = time.time()
+
+        if reset_to_O2:
+            self.present_gas("O2", 1, verbose=False, progress=False)
+
+        self.save_log()
+        return ("rec_stop", "event", {})
 
     def get_runname(self):
         """

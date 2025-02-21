@@ -34,12 +34,12 @@ if __name__=='__main__':
     controller = Controller(PORT)
     controller.connect_to_spikeglx()
 
-    controller.increment_gate = True
 
     # Write 3 gates [0,1,2]
     for ii in range(3):
         controller.start_recording_sglx()
         controller.wait(BASELINE_TIME)
+        controller.make_log_entry('bob','event')
         controller.stop_recording_sglx()
         controller.wait(3)
     
@@ -47,11 +47,11 @@ if __name__=='__main__':
     controller.start_recording_sglx()
     controller.wait(BASELINE_TIME)
     controller.stop_recording_sglx()
-    controller.increment_gate = False
     controller.wait(3)
     for ii in range(3):
-        controller.start_recording_sglx()
+        controller.start_recording_sglx(increment_gate=False)
         controller.wait(BASELINE_TIME)
+        controller.make_log_entry('tom','event')
         controller.stop_recording_sglx()
         controller.wait(3)
 

@@ -730,7 +730,7 @@ class ArduinoController(QWidget):
         if self.record_button.isChecked():
             self.record_button.setText('Stop Recording')
             self.start_record()
-            self.record_button.setStyleSheet("background-color: #AA1111" )
+            self.record_button.setStyleSheet("background-color: #5799f2" )
 
         else:
             self.record_button.setText('Start recording')
