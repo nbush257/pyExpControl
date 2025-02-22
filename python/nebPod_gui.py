@@ -75,34 +75,37 @@ class ArduinoController(QWidget):
         main_layout = QGridLayout(self)
         main_layout.setAlignment(Qt.AlignTop)
 
-        # Create file input field and button spanning the width
-        file_layout = QVBoxLayout()
-        self.file_path_input = QLineEdit(self)
-        self.file_path_input.setPlaceholderText(str(self.save_path))
-        self.file_path_input.setMinimumHeight(40)  # Set a larger height
-        browse_button = QPushButton("Choose save path...", self)
-        browse_button.clicked.connect(self.browse_directory)
 
+        # Create a box for recording controls
+        record_layout = QHBoxLayout()
+        self.record_button = QPushButton('Start Recording', self)
+        self.record_button.setCheckable(True)
+        self.record_button.setStyleSheet(f"background-color: {RECORD_INACTIVE_COLOR}; height: 50px;")
+        self.record_button.clicked.connect(self.toggle_recording)
+        record_layout.addWidget(self.record_button)
+        # Add increment_gate checkbox
+        self.increment_gate_checkbox = QCheckBox("increment_gate", self)
+        self.increment_gate_checkbox.setChecked(self.increment_gate)
+        self.increment_gate_checkbox.stateChanged.connect(self.toggle_increment_gate)
+        record_layout.addWidget(self.increment_gate_checkbox)
+
+        main_layout.addLayout(record_layout, 0, 0)
+
+        # Create script input field and button
         script_dialog = QVBoxLayout()
         self.script_path_input = QLineEdit(self)
         browse_script_button = QPushButton("Choose script to run", self)
         browse_script_button.clicked.connect(self.browse_script)
-
-        file_layout.addWidget(self.file_path_input)
-        file_layout.addWidget(browse_button)
-        script_dialog.addWidget(self.script_path_input)
-        script_dialog.addWidget(browse_script_button)
-
-        script_run = QVBoxLayout()
-        self.script_run_button = QPushButton('RUN SCRIPT',self)
+        self.script_run_button = QPushButton('RUN SCRIPT', self)
         self.script_run_button.setStyleSheet('background-color: #4496c2')
         self.script_run_button.clicked.connect(self.run_script)
-        script_run.addWidget(self.script_run_button)
 
-        main_layout.addLayout(file_layout, 0, 0)
+        script_dialog.addWidget(self.script_path_input)
+        script_dialog.addWidget(browse_script_button)
+        script_dialog.addWidget(self.script_run_button)
+
         main_layout.addLayout(script_dialog, 0, 1)
-        main_layout.addLayout(script_run, 0, 2)
-        
+
         # Create box for connecting:
         connect_box = QGridLayout()
         port_label = QLabel('COM Port:')
@@ -113,12 +116,14 @@ class ArduinoController(QWidget):
 
         port_disconnect_button = QPushButton('Disconnect COM')
         port_disconnect_button.clicked.connect(self.disconnect)
-        connect_box.addWidget(port_label,0,0)
-        connect_box.addWidget(port_lineedit,0,1)
-        connect_box.addWidget(port_connect_button,1,0,1,2)
-        connect_box.addWidget(port_disconnect_button,2,0,1,2)
+        connect_box.addWidget(port_label, 0, 0)
+        connect_box.addWidget(port_lineedit, 0, 1)
+        connect_box.addWidget(port_connect_button, 1, 0, 1, 2)
+        connect_box.addWidget(port_disconnect_button, 2, 0, 1, 2)
 
-        main_layout.addLayout(connect_box,0,3)
+        main_layout.addLayout(connect_box, 0, 2)
+
+
 
         # Create group box for toggle buttons (Valves)
         group_box_toggle = QGroupBox("Manual Valve Control", self)
@@ -130,7 +135,7 @@ class ArduinoController(QWidget):
         button_index = 0
         for row in range(4):
             for col in range(2):
-                if button_index>4:
+                if button_index > 4:
                     break
                 toggle_button = QPushButton(self.gas_map[button_index], self)
                 toggle_button.setCheckable(True)
@@ -138,29 +143,29 @@ class ArduinoController(QWidget):
                 toggle_button.clicked.connect(lambda state, button_number=button_index: self.open_valve(button_number))
                 toggle_layout.addWidget(toggle_button, row, col)
                 button_index += 1
-        
+
         # Create Hering breuer group
         hb_group = QGroupBox("Hering breuer", self)
         hb_lo = QGridLayout(hb_group)
         hb_lo.setAlignment(Qt.AlignTop)
-        
+
         self.hb_label_text = QLabel('Hering Breuer timed interval (s):')
         self.hb_time_lineedit = QLineEdit()
         self.hb_time_lineedit.setText(f'{self.hb_time:.2f}')
-        self.hb_time_lineedit.setValidator(QDoubleValidator(0.0,10.0,2))
+        self.hb_time_lineedit.setValidator(QDoubleValidator(0.0, 10.0, 2))
         self.hb_time_lineedit.textChanged.connect(self.update_hb_time)
 
         self.hering_breuer_manual = QPushButton('Hering Breuer manual', self)
         self.hering_breuer_manual.pressed.connect(self.start_hb)
         self.hering_breuer_manual.released.connect(self.end_hb)
-        
+
         self.hering_breuer_timed = QPushButton('Hering Breuer timed', self)
         self.hering_breuer_timed.clicked.connect(self.timed_hb)
 
-        hb_lo.addWidget(self.hb_label_text,0,0)
-        hb_lo.addWidget(self.hb_time_lineedit,0,1)
-        hb_lo.addWidget(self.hering_breuer_manual,1,0)
-        hb_lo.addWidget(self.hering_breuer_timed,1,1)
+        hb_lo.addWidget(self.hb_label_text, 0, 0)
+        hb_lo.addWidget(self.hb_time_lineedit, 0, 1)
+        hb_lo.addWidget(self.hering_breuer_manual, 1, 0)
+        hb_lo.addWidget(self.hering_breuer_timed, 1, 1)
 
         main_layout.addWidget(group_box_toggle, 1, 0)
         main_layout.addWidget(hb_group, 2, 0)
@@ -185,7 +190,7 @@ class ArduinoController(QWidget):
 
         pulse_500ms_button = QPushButton("500ms Pulse", self)
         pulse_500ms_button.clicked.connect(lambda: self.run_pulse(0.500))
-        
+
         pulse_1000ms_button = QPushButton("1000ms Pulse", self)
         pulse_1000ms_button.clicked.connect(lambda: self.run_pulse(1))
 
@@ -199,7 +204,7 @@ class ArduinoController(QWidget):
         pulse_layout.addWidget(pulse_200ms_button, 2, 0)
         pulse_layout.addWidget(pulse_500ms_button, 2, 1)
         pulse_layout.addWidget(pulse_1000ms_button, 2, 2)
-        pulse_layout.addWidget(hold_on_laser, 3, 1)
+        pulse_layout.addWidget(hold_on_laser, 3, 0,1,3)
 
         main_layout.addWidget(group_box_pulse, 2, 1)
 
@@ -212,37 +217,37 @@ class ArduinoController(QWidget):
         train_freq_label = QLabel('Train frequency (0-40 Hz)')
         self.train_freq_lineedit = QLineEdit()
         self.train_freq_lineedit.setText(f'{self.train_freq:.0f}')
-        self.train_freq_lineedit.setValidator(QDoubleValidator(0.0,40,0))
+        self.train_freq_lineedit.setValidator(QDoubleValidator(0.0, 40, 0))
         self.train_freq_lineedit.textChanged.connect(self.update_train_freq)
         # Train duration
         train_dur_label = QLabel('Train duration (0s-120s)')
         self.train_dur_lineedit = QLineEdit()
         self.train_dur_lineedit.setText(f'{self.train_duration:.0f}')
-        self.train_dur_lineedit.setValidator(QDoubleValidator(0.0,120.0,1))
+        self.train_dur_lineedit.setValidator(QDoubleValidator(0.0, 120.0, 1))
         self.train_dur_lineedit.textChanged.connect(self.update_train_duration)
         # Pulse duration
         train_pulse_dur_label = QLabel('Pulse duration (ms)')
         self.pulse_dur_lineedit = QLineEdit()
-        self.pulse_dur_lineedit.setText(f'{1000*self.train_pulse_dur:.0f}')
-        self.pulse_dur_lineedit.setValidator(QIntValidator(0,1000))
+        self.pulse_dur_lineedit.setText(f'{1000 * self.train_pulse_dur:.0f}')
+        self.pulse_dur_lineedit.setValidator(QIntValidator(0, 1000))
         self.pulse_dur_lineedit.textChanged.connect(self.update_train_pulse_dur)
         # Laser amplitude
         amp_label_text = QLabel('Laser Amp (0-1v):')
         self.laser_amp_lineedit = QLineEdit()
         self.laser_amp_lineedit.setText(f'{self.laser_amp:.2f}')
-        self.laser_amp_lineedit.setValidator(QDoubleValidator(0.0,1.0,2))
+        self.laser_amp_lineedit.setValidator(QDoubleValidator(0.0, 1.0, 2))
         self.laser_amp_lineedit.textChanged.connect(self.update_laser_amplitude_from_lineedit)
         self.laser_amp_dial = QDial()
         self.laser_amp_dial.setRange(0, 100)
-        self.laser_amp_dial.setValue(int(self.laser_amp*100))
+        self.laser_amp_dial.setValue(int(self.laser_amp * 100))
         self.laser_amp_dial.valueChanged.connect(self.update_laser_amplitude_from_dial)
 
         # Run train button
-        train_button = QPushButton('Run custom train',self)
+        train_button = QPushButton('Run custom train', self)
         train_button.clicked.connect(self.run_custom_train)
 
         # Visualize train button
-        viz_train_button = QPushButton('Visualize custom train',self)
+        viz_train_button = QPushButton('Visualize custom train', self)
         viz_train_button.clicked.connect(self.viz_custom_train)
 
         # Create a horizontal line
@@ -260,9 +265,9 @@ class ArduinoController(QWidget):
         self.null_voltage_label = QLabel('Null voltage (0-1v)')
         self.null_voltage_linedit = QLineEdit()
         self.null_voltage_linedit.setText(f'{self.null_voltage}')
-        self.null_voltage_linedit.setValidator(QDoubleValidator(0.0,1.0,2))
+        self.null_voltage_linedit.setValidator(QDoubleValidator(0.0, 1.0, 2))
         self.null_voltage_linedit.textChanged.connect(self.update_null_voltage)
-        
+
         # Change cobalt mode:
         mode_label = QLabel('Select laser mode:')
         self.binary_radio = QRadioButton('Binary')
@@ -284,7 +289,7 @@ class ArduinoController(QWidget):
         max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
         self.max_milliwatt_lineedit = QLineEdit()
         self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
-        self.max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0,1000.0,1))
+        self.max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0, 1000.0, 1))
         self.max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
 
         wavelength_selector = QComboBox(self)
@@ -304,7 +309,7 @@ class ArduinoController(QWidget):
 
         self.calibration_plot_layout = QVBoxLayout()
         self.calibration_plot_layout.addWidget(self.calibration_canvas)
-        main_layout.addLayout(self.calibration_plot_layout, 1, 3, 2, 1)
+        main_layout.addLayout(self.calibration_plot_layout, 0, 3, 3, 1)
 
         # Save calibration button
         load_calibration_button = QPushButton("Load Calibration Data", self)
@@ -327,23 +332,23 @@ class ArduinoController(QWidget):
         self.calibration_plot_layout.addWidget(save_calibration_button)
 
         # Layout
-        stim_params_layout.addWidget(train_freq_label, 1, 0)  
-        stim_params_layout.addWidget(train_dur_label, 2, 0)  
-        stim_params_layout.addWidget(train_pulse_dur_label, 3, 0)  
+        stim_params_layout.addWidget(train_freq_label, 1, 0)
+        stim_params_layout.addWidget(train_dur_label, 2, 0)
+        stim_params_layout.addWidget(train_pulse_dur_label, 3, 0)
         stim_params_layout.addWidget(amp_label_text, 4, 0)
-        stim_params_layout.addWidget(self.train_freq_lineedit,1,1)
-        stim_params_layout.addWidget(self.train_dur_lineedit,2,1)
-        stim_params_layout.addWidget(self.pulse_dur_lineedit,3,1)
+        stim_params_layout.addWidget(self.train_freq_lineedit, 1, 1)
+        stim_params_layout.addWidget(self.train_dur_lineedit, 2, 1)
+        stim_params_layout.addWidget(self.pulse_dur_lineedit, 3, 1)
         stim_params_layout.addWidget(self.laser_amp_lineedit, 4, 1)
 
-        stim_params_layout.addWidget(self.laser_amp_dial,4, 2, 2, 2)
-        
+        stim_params_layout.addWidget(self.laser_amp_dial, 4, 2, 2, 2)
+
         stim_params_layout.addWidget(train_button, 5, 0)
         stim_params_layout.addWidget(viz_train_button, 5, 1)
-        stim_params_layout.addLayout(line_box,6,0,1,3)
-        stim_params_layout.addWidget(self.null_voltage_label,7,0)
-        stim_params_layout.addWidget(self.null_voltage_linedit,7,1)
-        stim_params_layout.addLayout(mode_box,8,0)
+        stim_params_layout.addLayout(line_box, 6, 0, 1, 3)
+        stim_params_layout.addWidget(self.null_voltage_label, 7, 0)
+        stim_params_layout.addWidget(self.null_voltage_linedit, 7, 1)
+        stim_params_layout.addLayout(mode_box, 8, 0)
 
         # Add image at the bottom of the "Pulse Duration" column
         image_label = QLabel(self)
@@ -372,7 +377,7 @@ class ArduinoController(QWidget):
 
         exp_phasic_button = QPushButton(f"Run expiratory phasic stims\n({self.exp_phasic_duration:.0f}s of stimulations)", self)
         exp_phasic_button.clicked.connect(self.run_exp_phasic)
-        
+
         exp_single_pulse = QPushButton(f"Run expiratory single pulse trains\n({self.exp_phasic_duration:.0f}s of stimulations)", self)
         exp_single_pulse.clicked.connect(self.run_exp_phasic_single_pulse)
 
@@ -413,32 +418,19 @@ class ArduinoController(QWidget):
 
 
 
-        self.record_button = QPushButton('Start Recording', self)
-        self.record_button.setCheckable(True)
-        self.record_button.setStyleSheet(f"background-color: {RECORD_INACTIVE_COLOR}")
-        self.record_button.clicked.connect(self.toggle_recording)
-
-        # Add increment_gate checkbox
-        self.increment_gate_checkbox = QCheckBox("increment_gate", self)
-        self.increment_gate_checkbox.setChecked(self.increment_gate)
-        self.increment_gate_checkbox.stateChanged.connect(self.toggle_increment_gate)
-
         log_label = QLabel('Type your note:')
         self.log_lineedit = QLineEdit()
         self.log_lineedit.setText('')
         self.log_entry_button = QPushButton('Submit note to log')
         self.log_entry_button.clicked.connect(self.submit_log)
 
-
-        actions_layout.addWidget(start_camera_button, 0, 0)
-        actions_layout.addWidget(stop_camera_button, 0, 1)
-        actions_layout.addWidget(play_tone_button, 0, 2)
-        actions_layout.addWidget(play_sync_button, 0, 3)
-        actions_layout.addWidget(self.record_button, 3, 0)
-        actions_layout.addWidget(self.increment_gate_checkbox, 3, 1)  # Add checkbox next to record button
-        actions_layout.addWidget(log_label, 4, 0)
-        actions_layout.addWidget(self.log_lineedit, 4, 1, 1, 2)
-        actions_layout.addWidget(self.log_entry_button, 4, 3)
+        actions_layout.addWidget(start_camera_button, 1, 0)
+        actions_layout.addWidget(stop_camera_button, 1, 1)
+        actions_layout.addWidget(play_tone_button, 1, 2)
+        actions_layout.addWidget(play_sync_button, 1, 3)
+        actions_layout.addWidget(log_label, 2, 0)
+        actions_layout.addWidget(self.log_lineedit, 2, 1, 1, 2)
+        actions_layout.addWidget(self.log_entry_button, 2, 3)
 
         main_layout.addWidget(group_box_actions, 2, 2)
 
