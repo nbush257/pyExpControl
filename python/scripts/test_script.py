@@ -37,22 +37,22 @@ if __name__=='__main__':
 
     # Write 3 gates [0,1,2]
     for ii in range(3):
-        controller.start_recording_sglx()
+        controller.start_recording()
         controller.wait(BASELINE_TIME)
         controller.make_log_entry('bob','event')
-        controller.stop_recording_sglx()
+        controller.stop_recording()
         controller.wait(3)
     
     # Record gate 3 with multiple triggers
-    controller.start_recording_sglx()
+    controller.start_recording()
     controller.wait(BASELINE_TIME)
-    controller.stop_recording_sglx()
+    controller.stop_recording()
     controller.wait(3)
     for ii in range(3):
-        controller.start_recording_sglx(increment_gate=False)
+        controller.start_recording(increment_gate=False)
         controller.wait(BASELINE_TIME)
         controller.make_log_entry('tom','event')
-        controller.stop_recording_sglx()
+        controller.stop_recording()
         controller.wait(3)
 
 
