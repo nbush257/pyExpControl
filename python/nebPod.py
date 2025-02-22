@@ -1128,6 +1128,10 @@ class Controller:
         """
         ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
 
+        #  Set dataDir to the subject directory
+        c_root_dir = c_char_p(str(self.root_data_dir).encode())
+        ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_root_dir)
+
 
     @logger
     @event_timer
@@ -1493,6 +1497,7 @@ class Controller:
         data_dir = c_char_p()
         ok = c_sglx_getDataDir(byref(data_dir), self.sglx_handle,c_int(0))
         data_dir = Path(data_dir.value.decode())
+        self.root_data_dir = data_dir
         runname = self.get_runname()
 
         # If the data directory folder is not the runname, create a new folder with the runname
