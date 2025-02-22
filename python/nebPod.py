@@ -33,6 +33,11 @@ Example:
         return (label, category, params)
 """
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
+# TODO: incorporate spikeglx  run name getting and setting
+    #TODO: Get UI to decide if we want to increment the gate
+    #TODO: test and clean up the directory sglx directory saving
+import sys
+sys.path.append('D:/pyExpControl/ArCOM/Python3')
 from ArCOM import ArCOMObject
 import time
 import matplotlib.pyplot as plt
@@ -41,16 +46,26 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 import datetime
-import functools
+import re
 import os
 import sys
 from pathlib import Path
+
+SUBJECT_DIR = Path(r"D:\sglx_data")
 from PyQt5.QtWidgets import QApplication, QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
 
+sglx_api_path = Path(r'C:\helpers\SpikeGLX-CPP-SDK\Windows\Python\sglx_pkg')
+os.environ["PATH"] = str(sglx_api_path) + os.pathsep + os.environ["PATH"]
+
+sys.path.append(str(sglx_api_path))
+SGLX_ADDR = "localhost"
+SGLX_PORT = 4142
+from sglx import *
+from ctypes import byref, POINTER, c_int, c_short, c_bool, c_char_p
 
 def interval_timer(func):
     """
@@ -142,7 +157,7 @@ def logger(func):
         function: The wrapped function with logging functionality.
     """
 
-    def wrapper(self, *args, log_enabled=True, **kwargs):
+    def wrapper(self, *args, log_enabled=True,**kwargs):
         result = func(self, *args, **kwargs)
         if log_enabled:
             self.log.append(result)
@@ -175,9 +190,10 @@ class Controller:
         init_time (float): Initialization time.
         laser_command_amp (float): Laser command amplitude.
         odor_map (dict): Mapping of odors.
+        record_control (str): May be 'sglx' or 'ttl'. If 'sglx', the controller will use the SpikeGLX API to control recording. If 'ttl', the controller will use a TTL pulse to control recording.
     """
 
-    def __init__(self, port, gas_map=None, cobalt_mode="S", null_voltage=0.4):
+    def __init__(self, port, gas_map=None, cobalt_mode="S", null_voltage=0.4,record_control='sglx'):
         """
         Initialize the Controller object.
 
@@ -216,7 +232,7 @@ class Controller:
         self.rec_start_time = None
         self.rec_stop_time = None
         self.gate_dest = None
-        self.gate_dest_default = "D:/sglx_data"
+        self.gate_dest_default = SUBJECT_DIR
         self.log_filename = None
         self.init_time = time.time()
         if cobalt_mode == "B":
@@ -226,6 +242,23 @@ class Controller:
         )  # Initialize the laser controller object
         self.laser_command_amp = None
         self.odor_map = None
+        self.increment_gate=True
+        self.sglx_handle = None
+        assert record_control in ['sglx','ttl'], 'record_control must be sglx or ttl'
+        self.record_control=record_control
+
+    def connect_to_sglx(self):
+        """
+        Connect to the SpikeGLX server.
+        """
+        self.sglx_handle = c_sglx_createHandle()
+        ok = c_sglx_connect( self.sglx_handle, SGLX_ADDR.encode(), SGLX_PORT )
+        if ok:
+            print("Connected to SpikeGLX")
+        else:
+            self.sglx_handle = None
+            print("Failed to connect to SpikeGLX")
+        return ok
 
     @logger
     @event_timer
@@ -922,7 +955,73 @@ class Controller:
 
     @logger
     @event_timer
-    def start_recording(self, verbose=True, silent=True):
+    def start_recording(self,increment_gate=True,silent=True,verbose=True):
+        """
+        Start a recording using either the spikeglx api or the TTL method.
+
+        Args:
+            increment_gate (bool, optional): If True, increment the gate number. Defaults to True. Only used if using spikeglx
+            verbose (bool, optional): Verbosity flag. If True, prints a message indicating the recording has started. Defaults to True.
+            silent (bool, optional): If True, do not play an audio tone. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing:
+                - label (str): 'rec_start'
+                - category (str): 'event'
+                - params_out (dict): Empty dictionary.
+        """
+        if self.record_control=='sglx':
+            self.start_recording_sglx(increment_gate=increment_gate)
+        elif self.record_control=='ttl':
+            if increment_gate:
+                print('incrementing gate flag is not valid in TTL mode, ignoring')
+            self.start_recording_TTL()
+        else:
+            raise ValueError('record_control must be sglx or ttl')
+        print("=" * 50 + f"\nStarting recording via {self.record_control}!\n" + "=" * 50) if verbose else None
+        self.rec_start_time = time.time()
+
+        self.play_alert() if not silent else None
+
+        return ("rec_start", "event", {})
+
+    @logger
+    @event_timer
+    def stop_recording(self,silent=True,reset_to_O2=False,verbose=True):
+        """
+        Stop a recording using either the spikeglx api or the TTL method.
+        Optionally reset the O2.
+
+        Args:
+            verbose (bool, optional): Verbosity flag. If True, prints a message indicating the recording has started. Defaults to True.
+            reset_to_O2 (bool, optional): If True, sets the O2 valve to open. Defaults to False.
+            silent (bool, optional): If True, do not play an audio tone. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing:
+                - label (str): 'rec_start'
+                - category (str): 'event'
+                - params_out (dict): Empty dictionary.
+        """
+        if self.record_control=='sglx':
+            self.stop_recording_sglx()
+        elif self.record_control=='ttl':
+            self.stop_recording_TTL()
+        else:
+            raise ValueError('record_control must be sglx or ttl')
+        
+        print("=" * 50 + f"\nStopping recording via {self.record_control}!\n" + "=" * 50) if verbose else None
+        # Warning - playing alert can disrupt the log timing
+        self.play_alert() if not silent else None
+
+        if reset_to_O2:
+            self.present_gas("O2", 1, verbose=False, progress=False)
+
+        self.rec_stop_time = time.time()
+        self.save_log()
+        return ("rec_stop", "event", {})
+
+    def start_recording_TTL(self):
         """
         Start a recording by setting the record pin to high.
         Used in conjunction with "hardware trigger" in spikeglx.
@@ -937,21 +1036,46 @@ class Controller:
                 - category (str): 'event'
                 - params_out (dict): Empty dictionary.
         """
-        if not silent:
-            self.play_alert()
-            print("Playing audio can disrupt the log timing")
 
         self.empty_read_buffer()
-        self.rec_start_time = time.time()
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("b".encode("utf-8"))
         self.block_until_read()
-        print("=" * 50 + "\nStarting recording!\n" + "=" * 50) if verbose else None
-        return ("rec_start", "event", {})
 
-    @logger
-    @event_timer
-    def stop_recording(self, verbose=True, reset_to_O2=False, silent=True):
+    def start_recording_sglx(self,increment_gate=True):
+        """
+        Start recording using the spikeGLX API
+        """
+        # Check if connected (i.e. a spikeglx instance is running)
+        if self.sglx_handle is None:
+            ok = self.connect_to_sglx()
+            if not ok:
+                raise ValueError("Could not connect to spikeGLX")
+
+        # Check if running (i.e., there are scrolling traces)
+        running = c_bool(False)
+        ok = c_sglx_isRunning(byref(running),self.sglx_handle)
+        if not running.value:
+            raise ValueError("SpikeGLX is not running. Start a run (i.e. active spikeglx window).")
+
+
+
+        self.log=[] # Reset the log.
+        self.get_logname_from_sglx(increment_gate=increment_gate)
+
+        # Enable recording
+        ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
+
+        gates,gate_nums = self.get_gates()
+        n_gates = len(gates)
+
+        # Send command to start recording
+        if n_gates == 0 or increment_gate:
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1)) 
+        else:
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1)) 
+
+    def stop_recording_TTL(self, verbose=True, reset_to_O2=False, silent=True):
         """
         Stop a recording by setting the record pin to low, and optionally reset the O2.
         Used in conjunction with "hardware trigger" in spikeglx.
@@ -972,16 +1096,13 @@ class Controller:
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("e".encode("utf-8"))
         self.block_until_read()
-        self.rec_stop_time = time.time()
-        print("=" * 50 + "\nStopping recording!\n" + "=" * 50) if verbose else None
-        if not silent:
-            self.play_alert()
-            print("Playing audio can disrupt the log timing")
+    
+    def stop_recording_sglx(self,verbose=True):
+        """
+        Stop recording using the spikeGLX API
+        """
+        ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
 
-        if reset_to_O2:
-            self.present_gas("O2", 1, verbose=False, progress=False)
-
-        return ("rec_stop", "event", {})
 
     @logger
     @event_timer
@@ -1089,14 +1210,14 @@ class Controller:
         Save the log to a tab-separated file.
 
         Args:
-            path (str or Path, optional): Path to save the log file. Defaults to the gate destination or D:/sglx_data.
+            path (str or Path, optional): Path to save the log file. Defaults to the gate destination or SUBJECT_DIR
             filename (str, optional): Filename to save the log as. Defaults to self.log_filename.
             verbose (bool, optional): Verbosity flag. If True, prints the save location. Defaults to True.
 
         Returns:
             None
         """
-        path = self.gate_dest or path or Path(r"D:/sglx_data")
+        path = self.gate_dest or path or SUBJECT_DIR
         now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         filename = self.log_filename or filename
         if filename is None:
@@ -1120,6 +1241,7 @@ class Controller:
         log_df.loc[gasses.index, :] = gasses
 
         log_df.to_csv(save_fn, sep="\t")
+
         if verbose:
             print(f"Log saved to {save_fn}")
 
@@ -1269,7 +1391,98 @@ class Controller:
         self.log_filename = (
             f"_cibbrig_log.table.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.tsv"
         )
+        self.gate_dest.mkdir(exist_ok=True)
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+
+
+    def get_gates(self):
+        """
+        Get the number of gates that have already been recorded
+        """
+        gates = list(self.subject_dir.glob(f"{self.runname}_g*"))
+        gate_nums = [int(gate.name.split("_g")[-1]) for gate in gates]
+        return (gates,gate_nums)
+
+    def get_logname_from_sglx(self,increment_gate=True):
+        """ 
+        Use the spikeGLX API to get run, gate, and trigger info
+        """
+        if self.sglx_handle is None:
+            self.connect_to_sglx()
+
+        data_dir = self.get_subject_dir()
+        gates,gate_nums = self.get_gates()
+        n_gates = len(gates)
+        runname = self.get_runname()
+
+        if n_gates == 0:
+            g_suffix = 0
+            t_suffix = 0
+        elif increment_gate:
+            g_suffix = n_gates
+            t_suffix = 0
+        else:
+            g_suffix = n_gates-1
+            t_suffix = self.get_last_trigger(g_suffix)+1
+
+        # Get the destination of the gate
+        self.gate_dest = data_dir.joinpath(f'{runname}_g{g_suffix}')
+        self.gate_dest.mkdir(exist_ok=True)
+
+        # Set the log filename
+        self.log_filename = (
+            f"_cibbrig_log.table.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.tsv"
+        )
+        print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+    
+    def get_last_trigger(self, gate_num):
+        """
+        Get the last trigger that was recorded in a gate
+        """
+        gates,gate_nums = self.get_gates()
+        this_gate = gates[gate_nums.index(gate_num)]
+        triggers = list(this_gate.rglob(f"*_t*"))
+        # Use re to find the strings between "-t" and "."
+        trigger_nums = [int(re.search(r'(?<=_t)\d+(?=\.)',trigger.name).group()) for trigger in triggers]
+        trigger_nums = set(trigger_nums)
+        last_trigger = max(trigger_nums)
+        return last_trigger
+
+    def get_runname(self):
+        """
+        Get the run name from the spikeGLX API
+        """
+        run = c_char_p()
+        ok = c_sglx_getRunName(byref(run), self.sglx_handle )
+        self.runname = run.value.decode()
+        return self.runname
+
+    def get_subject_dir(self):
+        """
+        Get the subject directory from the spikeGLX API where all the gates will be saved
+        If the data directory is not the runname, create a new folder with the runname 
+        and set the data directory for sglx
+        """
+
+        # Get the data directory from sglx
+        data_dir = c_char_p()
+        ok = c_sglx_getDataDir(byref(data_dir), self.sglx_handle,c_int(0))
+        data_dir = Path(data_dir.value.decode())
+        runname = self.get_runname()
+
+        # If the data directory folder is not the runname, create a new folder with the runname
+        if data_dir.name != runname:
+            subject_dir = data_dir.joinpath(runname)
+            subject_dir.mkdir(exist_ok=True)
+
+            # Set the data directory for sglx
+            c_subject_dir  = c_char_p(str(subject_dir).encode())
+            ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_subject_dir)
+        else:
+            subject_dir = data_dir
+
+        self.subject_dir = subject_dir
+        return self.subject_dir
 
     def get_laser_amp_from_user(self, multi=False):
         """
@@ -1455,7 +1668,9 @@ class Controller:
             else:
                 self.present_odor("blank")
         self.present_gas(gas)
-        self.get_logname_from_user()
+
+        if self.record_control=='ttl':
+            self.get_logname_from_user()
         self.get_laser_amp_from_user(multi=multi_amp)
         self.settle()
         self.start_recording()

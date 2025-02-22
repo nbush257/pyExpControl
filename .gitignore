@@ -1,5 +1,6 @@
 *.pyc
 .vscode/*
 /python/scripts
+!python/scripts/test_script.py
 *.tsv
 *.bat
