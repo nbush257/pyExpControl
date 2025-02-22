@@ -288,11 +288,13 @@ class ArduinoController(QWidget):
         self.max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
 
         wavelength_selector = QComboBox(self)
+        wavelength_selector.setObjectName("wavelength_selector")
         wavelength_selector.addItems(self.implemented_wavelengths)
         wavelength_selector.setCurrentIndex(0)
         wavelength_selector.activated.connect(self.select_wavelength)
 
         fiber_selector = QComboBox(self)
+        fiber_selector.setObjectName("fiber_selector")
         fiber_selector.addItems(self.implemented_fibers)
         fiber_selector.setCurrentIndex(0)
         fiber_selector.activated.connect(self.select_fiber)
@@ -305,9 +307,11 @@ class ArduinoController(QWidget):
         main_layout.addLayout(self.calibration_plot_layout, 1, 3, 2, 1)
 
         # Save calibration button
+        load_calibration_button = QPushButton("Load Calibration Data", self)
+        load_calibration_button.clicked.connect(self.load_calibration_data)
         save_calibration_button = QPushButton("Save Calibration Data", self)
         save_calibration_button.clicked.connect(self.save_calibration_data)
-        self.calibration_plot_layout.addWidget(auto_calibrate_button)
+        self.calibration_plot_layout.addWidget(load_calibration_button)
         self.calibration_plot_layout.addWidget(save_calibration_button)
 
         # Add widgets to the calibration plot layout
@@ -319,6 +323,7 @@ class ArduinoController(QWidget):
 
         self.calibration_plot_layout.addLayout(calibration_controls_layout)
         self.calibration_plot_layout.addWidget(auto_calibrate_button)
+        self.calibration_plot_layout.addWidget(load_calibration_button)
         self.calibration_plot_layout.addWidget(save_calibration_button)
 
         # Layout
@@ -731,6 +736,8 @@ class ArduinoController(QWidget):
             print("No calibration data to save.")
             return
 
+        self.calibration_data['calibration_date'] = datetime.datetime.now().isoformat()
+
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         file_name, _ = QFileDialog.getSaveFileName(self, "Save Calibration Data", "opto_calibration.json", "JSON Files (*.json)", options=options)
@@ -738,6 +745,35 @@ class ArduinoController(QWidget):
             with open(file_name, 'w') as fid:
                 json.dump(self.calibration_data, fid, indent=4)
             print(f"Calibration data saved to {file_name}")
+
+    def load_calibration_data(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getOpenFileName(self, "Load Calibration Data", "", "JSON Files (*.json)", options=options)
+        if file_name:
+            with open(file_name, 'r') as fid:
+                self.calibration_data = json.load(fid)
+            self.controller.laser_calibration_data = self.calibration_data
+            self.fiber = self.calibration_data.get('fiber', self.fiber)
+            self.light_wavelength = self.calibration_data.get('wavelength', self.light_wavelength)
+            self.plot_calibration_data()
+            print(f"Calibration data loaded from {file_name}")
+
+            # Update fiber combo box
+            fiber_selector = self.findChild(QComboBox, "fiber_selector")
+            if fiber_selector:
+                fiber_index = fiber_selector.findText(self.fiber)
+                if fiber_index != -1:
+                    fiber_selector.setCurrentIndex(fiber_index)
+            # Update wavelength combo box
+            wavelength_selector = self.findChild(QComboBox, "wavelength_selector")
+            if wavelength_selector:
+                wavelength_index = wavelength_selector.findText(self.light_wavelength)
+                if wavelength_index != -1:
+                    wavelength_selector.setCurrentIndex(wavelength_index)
+
+
+
 
     def select_wavelength(self):
         self.light_wavelength = self.sender().currentText()
@@ -814,7 +850,10 @@ class ArduinoController(QWidget):
     def closeEvent(self, event):
         # Close the ArCOM port when the application is closed
         self.controller.serial_port.serialObject.read_all()
-        self.stop_record()
+        try:
+            self.stop_record()
+        except:
+            print('No recording to stop')
         self.open_valve(0)
         if self.IS_CONNECTED:
             self.controller.serial_port.close()
