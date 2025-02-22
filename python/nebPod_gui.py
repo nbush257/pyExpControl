@@ -506,7 +506,7 @@ class ArduinoController(QWidget):
                             duration_sec=self.insp_phasic_duration,
                             intertrain_interval_sec=0.,
                             pulse_duration_sec = self.train_pulse_dur,
-                            freq = 10,
+                            freq = self.train_freq,
                             log_enabled=self.log_enabled
                             )
         
@@ -535,7 +535,7 @@ class ArduinoController(QWidget):
                             duration_sec=self.exp_phasic_duration,
                             intertrain_interval_sec=0.,
                             pulse_duration_sec = self.train_pulse_dur,
-                            freq = 10.0,
+                            freq = self.train_freq,
                             log_enabled=self.log_enabled
                             )
         
