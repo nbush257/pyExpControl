@@ -12,9 +12,10 @@ from pathlib import Path
 import datetime
 import pandas as pd
 import json
-curr_dir = Path(os.getcwd())
-sys.path.append(str(curr_dir))
-sys.path.append(str(curr_dir.parent.joinpath('ArCOM/Python3')))
+import sys
+sys.path.append(r'D:/pyExpControl/python')
+sys.path.append(r'D:/pyExpControl/ArCOM/Python3')
+
 from ArCOM import ArCOMObject # Import ArCOMObject
 import nebPod
 try:
@@ -22,6 +23,8 @@ try:
     HAS_STYLING = True
 except:
     HAS_STYLING = False
+RECORD_INACTIVE_COLOR = "#78e864"
+RECORD_ACTIVE_COLOR = "#FF0000"
         
 PORT = 'COM11'
 class ArduinoController(QWidget):
@@ -390,7 +393,7 @@ class ArduinoController(QWidget):
     
         self.record_button = QPushButton('Start Recording', self)
         self.record_button.setCheckable(True)
-        self.record_button.setStyleSheet("background-color: #111111")
+        self.record_button.setStyleSheet(f"background-color: {RECORD_INACTIVE_COLOR}")
         self.record_button.clicked.connect(self.toggle_recording)
 
         log_label = QLabel('Type your note:')
@@ -728,33 +731,31 @@ class ArduinoController(QWidget):
     
     def toggle_recording(self):
         if self.record_button.isChecked():
+            try:
+                self.start_record()
+            except Exception as e:
+                print(f'Error starting recording: {e}')
+                self.record_button.setChecked(False)
+                return
+
             self.record_button.setText('Stop Recording')
-            self.start_record()
-            self.record_button.setStyleSheet("background-color: #5799f2" )
+            self.record_button.setStyleSheet(f"background-color: {RECORD_ACTIVE_COLOR}" )
 
         else:
             self.record_button.setText('Start recording')
-            self.record_button.setStyleSheet("background-color: #111111" )
+            self.record_button.setStyleSheet(f"background-color: {RECORD_INACTIVE_COLOR}" )
             self.stop_record()
 
     def start_record(self):
-        self.controller.log = []
-        self.log_enabled=True
-        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        self.controller.log_filename = f'log.table.{now}.tsv'
-        self.controller.start_recording(silent=True,log_enabled= self.log_enabled)
+        self.controller.start_recording(silent=True)
 
     def stop_record(self):
-        print('stopping recording...')
-        self.controller.stop_recording(reset_to_O2=False,silent=True,verbose=False,log_enabled=True)
-        self.controller.save_log()
-        self.log_enabled=False
+        self.controller.stop_recording(reset_to_O2=False,silent=True,log_enabled=True)
 
 
     # Shutdown
     def closeEvent(self, event):
         # Close the ArCOM port when the application is closed
-        # self.open_valve(0,1) -- Uncomment this to default to O2 on close
         self.controller.serial_port.serialObject.read_all()
         self.stop_record()
         self.open_valve(0)

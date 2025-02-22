@@ -246,7 +246,7 @@ class Controller:
         assert record_control in ['sglx','ttl'], 'record_control must be sglx or ttl'
         self.record_control=record_control
 
-    def connect_to_spikeglx(self):
+    def connect_to_sglx(self):
         """
         Connect to the SpikeGLX server.
         """
@@ -255,7 +255,9 @@ class Controller:
         if ok:
             print("Connected to SpikeGLX")
         else:
+            self.sglx_handle = None
             print("Failed to connect to SpikeGLX")
+        return ok
 
     @logger
     @event_timer
@@ -952,7 +954,7 @@ class Controller:
 
     @logger
     @event_timer
-    def start_recording(self,**kwargs):
+    def start_recording(self,silent=True,verbose=True):
         """
         Start a recording using either the spikeglx api or the TTL method.
 
@@ -967,17 +969,21 @@ class Controller:
                 - params_out (dict): Empty dictionary.
         """
         if self.record_control=='sglx':
-            self.start_recording_sglx(**kwargs)
+            self.start_recording_sglx()
         elif self.record_control=='ttl':
-            self.start_recording_TTL(**kwargs)
+            self.start_recording_TTL()
         else:
             raise ValueError('record_control must be sglx or ttl')
+        print("=" * 50 + f"\nStarting recording via {self.record_control}!\n" + "=" * 50) if verbose else None
+        self.rec_start_time = time.time()
+
+        self.play_alert() if not silent else None
 
         return ("rec_start", "event", {})
 
     @logger
     @event_timer
-    def stop_recording(self,**kwargs):
+    def stop_recording(self,silent=True,reset_to_O2=False,verbose=True):
         """
         Stop a recording using either the spikeglx api or the TTL method.
         Optionally reset the O2.
@@ -994,15 +1000,24 @@ class Controller:
                 - params_out (dict): Empty dictionary.
         """
         if self.record_control=='sglx':
-            self.stop_recording_sglx(**kwargs)
+            self.stop_recording_sglx()
         elif self.record_control=='ttl':
-            self.stop_recording_TTL(**kwargs)
+            self.stop_recording_TTL()
         else:
             raise ValueError('record_control must be sglx or ttl')
+        
+        print("=" * 50 + f"\nStopping recording via {self.record_control}!\n" + "=" * 50) if verbose else None
+        # Warning - playing alert can disrupt the log timing
+        self.play_alert() if not silent else None
 
+        if reset_to_O2:
+            self.present_gas("O2", 1, verbose=False, progress=False)
+
+        self.rec_stop_time = time.time()
+        self.save_log()
         return ("rec_stop", "event", {})
 
-    def start_recording_TTL(self, verbose=True, silent=True):
+    def start_recording_TTL(self):
         """
         Start a recording by setting the record pin to high.
         Used in conjunction with "hardware trigger" in spikeglx.
@@ -1017,16 +1032,44 @@ class Controller:
                 - category (str): 'event'
                 - params_out (dict): Empty dictionary.
         """
-        if not silent:
-            self.play_alert()
-            print("Playing audio can disrupt the log timing")
 
         self.empty_read_buffer()
-        self.rec_start_time = time.time()
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("b".encode("utf-8"))
         self.block_until_read()
-        print("=" * 50 + "\nStarting recording via hardware!\n" + "=" * 50) if verbose else None
+
+    def start_recording_sglx(self,increment_gate=True):
+        """
+        Start recording using the spikeGLX API
+        """
+        # Check if connected (i.e. a spikeglx instance is running)
+        if self.sglx_handle is None:
+            ok = self.connect_to_sglx()
+            if not ok:
+                raise ValueError("Could not connect to spikeGLX")
+
+        # Check if running (i.e., there are scrolling traces)
+        running = c_bool(False)
+        ok = c_sglx_isRunning(byref(running),self.sglx_handle)
+        if not running.value:
+            raise ValueError("SpikeGLX is not running. Start a run (i.e. active spikeglx window).")
+
+
+
+        self.log=[] # Reset the log.
+        self.get_logname_from_sglx(increment_gate=increment_gate)
+
+        # Enable recording
+        ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
+
+        gates,gate_nums = self.get_gates()
+        n_gates = len(gates)
+
+        # Send command to start recording
+        if n_gates == 0 or increment_gate:
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1)) 
+        else:
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1)) 
 
     def stop_recording_TTL(self, verbose=True, reset_to_O2=False, silent=True):
         """
@@ -1049,58 +1092,13 @@ class Controller:
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("e".encode("utf-8"))
         self.block_until_read()
-        self.rec_stop_time = time.time()
-        print("=" * 50 + "\nStopping recording via hardware!\n" + "=" * 50) if verbose else None
-        if not silent:
-            self.play_alert()
-            print("Playing audio can disrupt the log timing")
-
-        if reset_to_O2:
-            self.present_gas("O2", 1, verbose=False, progress=False)
-
-        return ("rec_stop", "event", {})
-
-    def start_recording_sglx(self,increment_gate=True,silent=True,verbose=True):
-        """
-        Start recording using the spikeGLX API
-        """
-        if self.sglx_handle is None:
-            self.connect_to_sglx()
-
-        self.log=[] # Reset the log.
-        self.get_logname_from_sglx(increment_gate=increment_gate)
-
-        # Enable recording
-        ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
-
-        gates,gate_nums = self.get_gates()
-        n_gates = len(gates)
-
-        self.play_alert() if not silent else None
-
-        # Send command to start recording
-        if n_gates == 0 or increment_gate:
-            ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1)) 
-        else:
-            ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1)) 
-        self.rec_start_time = time.time()
-        print("=" * 50 + "\nStarting recording via spikeglx api!\n" + "=" * 50) if verbose else None
-        return ("rec_start", "event", {})
     
-    def stop_recording_sglx(self,verbose=True,reset_to_O2=False,silent=True):
+    def stop_recording_sglx(self,verbose=True):
         """
         Stop recording using the spikeGLX API
         """
-        print("=" * 50 + "\nStopping recording via spikeglx api!\n" + "=" * 50) if verbose else None
-        self.play_alert() if not silent else None
-
         ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
-        self.rec_stop_time = time.time()
 
-        if reset_to_O2:
-            self.present_gas("O2", 1, verbose=False, progress=False)
-
-        self.save_log()
 
     @logger
     @event_timer

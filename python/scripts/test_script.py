@@ -32,7 +32,7 @@ def main(controller):
 
 if __name__=='__main__':
     controller = Controller(PORT)
-    controller.connect_to_spikeglx()
+    controller.connect_to_sglx()
 
 
     # Write 3 gates [0,1,2]
