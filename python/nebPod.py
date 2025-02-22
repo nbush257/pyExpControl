@@ -51,6 +51,13 @@ import os
 import sys
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication, QDialog, QHBoxLayout, QVBoxLayout,QLabel, QLineEdit, QPushButton, QMessageBox
+# Import qwidget
+from PyQt5.QtWidgets import QWidget
+# Import QApplication and QLabel  
+from PyQt5.QtWidgets import QApplication, QLabel
+#Import QFIledialog
+from PyQt5.QtWidgets import QFileDialog
+import json
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 SUBJECT_DIR = Path(r"D:\sglx_data")
@@ -191,6 +198,7 @@ class Controller:
         laser_command_amp (float): Laser command amplitude.
         odor_map (dict): Mapping of odors.
         record_control (str): May be 'sglx' or 'ttl'. If 'sglx', the controller will use the SpikeGLX API to control recording. If 'ttl', the controller will use a TTL pulse to control recording.
+        laser_calibration_data (dict): Dictionary to store laser calibration data.
     """
 
     def __init__(self, port, gas_map=None, cobalt_mode="S", null_voltage=0.4,record_control='sglx'):
@@ -246,6 +254,7 @@ class Controller:
         self.sglx_handle = None
         assert record_control in ['sglx','ttl'], 'record_control must be sglx or ttl'
         self.record_control=record_control
+        self.laser_calibration_data = None
 
     def connect_to_sglx(self):
         """
@@ -1041,6 +1050,18 @@ class Controller:
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("b".encode("utf-8"))
         self.block_until_read()
+    
+    def check_is_running(self):
+        """
+        Check if the spikeGLX instance is running.
+
+        Returns:
+            bool: True if running, False otherwise.
+        """
+        running = c_bool(False)
+        ok = c_sglx_isRunning(byref(running),self.sglx_handle)
+        if not running.value:
+            raise ValueError("SpikeGLX is not running. Start a run (i.e. active spikeglx window).")
 
     def start_recording_sglx(self,increment_gate=True):
         """
@@ -1052,16 +1073,20 @@ class Controller:
             if not ok:
                 raise ValueError("Could not connect to spikeGLX")
 
-        # Check if running (i.e., there are scrolling traces)
-        running = c_bool(False)
-        ok = c_sglx_isRunning(byref(running),self.sglx_handle)
-        if not running.value:
-            raise ValueError("SpikeGLX is not running. Start a run (i.e. active spikeglx window).")
+        self.check_is_running()
 
 
 
         self.log=[] # Reset the log.
         self.get_logname_from_sglx(increment_gate=increment_gate)
+
+        # If laser_calibration data exists, save it to the opto_calibration.json in the gate folder
+        if self.laser_calibration_data is not None:
+            fn = self.gate_dest.joinpath('opto_calibration.json')
+            if fn.exists():
+                print('Warning: opto_calibration.json already exists. Overwriting.')
+            with open(fn,'w') as f:
+                json.dump(self.laser_calibration_data,f)
 
         # Enable recording
         ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
@@ -1494,12 +1519,13 @@ class Controller:
         Returns:
             None
         """
-        app = QApplication(sys.argv)
-        dialog = LaserAmpDialog(multi)
-        if dialog.exec_() == QDialog.Accepted:
-            self.laser_command_amps = dialog.amplitudes
-            self.laser_command_amp = dialog.amplitudes[0]
-        app.exit()
+        self.app = QApplication(sys.argv)
+        laser_ui = LaserAmpDialog(multi,calibration_data=self.laser_calibration_data)
+        if laser_ui.exec_() == QDialog.Accepted:
+            self.laser_command_amps = laser_ui.amplitudes
+            self.laser_command_amp = laser_ui.amplitudes[0]
+            self.laser_calibration_data = laser_ui.calibration_data
+        # app.exit()
 
     @logger
     @event_timer
@@ -1632,7 +1658,7 @@ class Controller:
         self.save_log()
 
     def preroll(
-        self, use_camera=True, gas="O2", settle_sec=None, set_olfactometer=False,multi_amp=False
+        self, use_camera=False, gas="O2", settle_sec=None, set_olfactometer=False,multi_amp=False,increment_gate=True
     ):
         """
         Boilerplate commands to start an experiment.
@@ -1645,15 +1671,16 @@ class Controller:
             gas (str, optional): The gas to send by default. Must be in the gas map: {'O2', 'room air', 'hypercapnia', 'hypoxia', 'N2'}. Defaults to 'O2'.
             settle_sec (float, optional): Settle time in seconds. If None, uses the default settle time for the controller object. Defaults to None.
             set_olfactometer (bool, optional): If True, sets the olfactometer valves. Defaults to False.
-
+            multi_amp (bool, optional): If True, prompts the user for a list of amplitudes. Defaults to False.
+            increment_gate (bool, optional): If True, increment the gate number, passed to start_recording. Defaults to True.
         Returns:
             None
         """
         if settle_sec is not None:
             self.settle_time_sec = settle_sec
         print(f"Default presenting {gas}")
-        # self.stop_camera_trig()
-        # self.stop_recording()
+        if self.record_control=='sglx':
+            self.check_is_running()
 
         # Assumes the first valve is blank
         if set_olfactometer:
@@ -1677,7 +1704,6 @@ class Controller:
         if use_camera:
             time.sleep(0.5)
             self.start_camera_trig()
-
 
     @logger
     @event_timer
@@ -1752,10 +1778,16 @@ def get_elapsed_time(start_time):
     return elapsed_time
 
 class LaserAmpDialog(QDialog):
-    def __init__(self, multi=False, parent=None):
-        super().__init__(parent)
+    def __init__(self, multi=False, calibration_data=None):
+        super().__init__()
         self.multi = multi
+        self.calibration_data = calibration_data
+        self.figure = plt.figure()
+        self.canvas = FigureCanvasQTAgg(self.figure)
         self.init_ui()
+        self.amplitudes = []
+        self.amplitude = None
+
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -1767,7 +1799,88 @@ class LaserAmpDialog(QDialog):
         self.calibration_plot_widget = QWidget(self)
         self.calibration_plot_layout.addWidget(self.calibration_plot_widget)
         layout.addLayout(self.calibration_plot_layout)
+        
 
+        self.setWindowTitle('Set Laser Amplitude')
+        layout_vals = QHBoxLayout()
+        layout.addLayout(layout_vals)
+
+        if self.multi:
+            self.min_label = QLabel('Min Amplitude (0-1):')
+            self.min_input = QLineEdit(self)
+            layout_vals.addWidget(self.min_label)
+            layout_vals.addWidget(self.min_input)
+
+            self.max_label = QLabel('Max Amplitude (0-1):')
+            self.max_input = QLineEdit(self)
+            layout_vals.addWidget(self.max_label)
+            layout_vals.addWidget(self.max_input)
+
+            self.step_label = QLabel('Step:')
+            self.step_input = QLineEdit(self)
+            layout_vals.addWidget(self.step_label)
+            layout_vals.addWidget(self.step_input)
+        else:
+            self.label = QLabel('Set the laser power (0-1V):')
+            self.input = QLineEdit(self)
+            layout_vals.addWidget(self.label)
+            layout_vals.addWidget(self.input)
+
+        self.ok_button = QPushButton('Submit', self)
+        self.ok_button.clicked.connect(self.on_ok)
+        layout.addWidget(self.ok_button)
+
+        self.setLayout(layout)
+        self.setGeometry(100, 100, 800, 600)
+        self.plot_calibration_data()
+
+    def on_ok(self):
+        if self.multi:
+            try:
+                min_val = float(self.min_input.text())
+                max_val = float(self.max_input.text())
+                step = float(self.step_input.text())
+                if not (0 <= min_val <= 1) or not (0 <= max_val <= 1) or step <= 0:
+                    msg = 'Please enter valid numbers between 0 and 1 for min and max, and a positive number for step.'
+                    raise ValueError
+
+                if min_val > max_val:
+                    msg = 'Min amplitude must be less than max amplitude.'
+                    raise ValueError
+                
+                if step > max_val - min_val:
+                    msg = 'Step size must be less than the difference between min and max amplitudes.'
+                    raise ValueError
+
+                if min_val == max_val:
+                    self.amplitudes = [min_val]
+                else:
+                    amps = np.round(np.arange(min_val, max_val, step), 2).tolist()
+                    amps = amps + [max_val] if amps[-1] != max_val else amps
+                    self.amplitudes = amps
+                
+                print(f"Voltages set to {self.amplitudes} volts")
+                if self.calibration_data is not None:
+                    mw_amps =  [np.interp(amp, self.calibration_data['command_voltage'], self.calibration_data['light_power']) for amp in self.amplitudes]
+                    print(f"Amplitudes set to {mw_amps} mW")
+                self.accept()
+            except ValueError:
+                QMessageBox.warning(self, 'Invalid Input', msg)
+        else:
+            try:
+                val = float(self.input.text())
+                if not (0 <= val <= 1):
+                    raise ValueError
+                self.amplitudes = [val]
+                print(f"Voltage set to {val}")
+                if self.calibration_data is not None:
+                    mw_amp = np.interp(val, self.calibration_data['command_voltage'], self.calibration_data['light_power'])
+                    print(f"Amplitude set to {mw_amp}")
+                self.accept()
+            except ValueError:
+                QMessageBox.warning(self, 'Invalid Input', 'Please enter a valid number between 0 and 1.')
+
+                
     def load_calibration_file(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
@@ -1778,20 +1891,22 @@ class LaserAmpDialog(QDialog):
             self.plot_calibration_data()
 
     def plot_calibration_data(self):
+        self.figure.clear()
         if self.calibration_data is None:
-            return
+            plt.text(0.5, 0.5, 'No calibration data loaded', ha='center', va='center', fontsize=16)
+            plt.xlim(0, 1)
+            plt.ylim(0, 10)
+        else:
+            volts_supplied = np.array(self.calibration_data['command_voltage'])
+            powers = np.array(self.calibration_data['light_power'])
+            plt.plot(volts_supplied, powers, 'o-')
 
-        volts_supplied = np.array(self.calibration_data['command_voltage'])
-        powers = np.array(self.calibration_data['light_power'])
-
-        plt.figure()
-        plt.plot(volts_supplied, powers, 'o-')
         plt.xlabel('Command Voltage (V)')
         plt.ylabel('Light Power (mW)')
         plt.title('Opto Calibration')
         plt.grid(True)
 
         # Embed the plot in the QWidget
-        canvas = FigureCanvasQTAgg(plt.gcf())
-        self.calibration_plot_layout.addWidget(canvas)
-        canvas.draw()
+        self.calibration_plot_layout.addWidget(self.canvas)
+        self.canvas.draw()
+    

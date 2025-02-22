@@ -698,6 +698,7 @@ class ArduinoController(QWidget):
             'fiber': self.fiber,
             'wavelength': self.light_wavelength
         }
+        self.controller.laser_calibration_data = self.calibration_data
         self.plot_calibration_data()
 
     def plot_calibration_data(self):
