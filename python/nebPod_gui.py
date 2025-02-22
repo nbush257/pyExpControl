@@ -846,10 +846,12 @@ class ArduinoController(QWidget):
             self.stop_record()
 
     def start_record(self):
+        self.log_enabled = True
         self.controller.start_recording(increment_gate = self.increment_gate,silent=True)
 
     def stop_record(self):
         self.controller.stop_recording(reset_to_O2=False,silent=True,log_enabled=True)
+        self.log_enabled = False
 
     def toggle_increment_gate(self, state):
         self.increment_gate = bool(state)
