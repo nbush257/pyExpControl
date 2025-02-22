@@ -703,6 +703,7 @@ class ArduinoController(QWidget):
             'fiber': self.fiber,
             'wavelength': self.light_wavelength
         }
+        self.calibration_data['calibration_date'] = datetime.datetime.now().isoformat()
         self.controller.laser_calibration_data = self.calibration_data
         self.plot_calibration_data()
 
@@ -723,7 +724,23 @@ class ArduinoController(QWidget):
                 self.ax.axhline(pwr, color='k', ls='--')
                 self.ax.axvline(volts_supplied[idx], color='k', ls='--')
                 self.ax.text(volts_supplied[idx], pwr, f'{pwr:.1f}mW', ha='center', va='center', color='k', rotation=90)
-        
+            # If calibration  date is available, add it to the plot
+            # If it is older than 1 day make the text red
+            if 'calibration_date' in self.calibration_data:
+                calib_date = datetime.datetime.fromisoformat(self.calibration_data['calibration_date'])
+                if (datetime.datetime.now() - calib_date).days > 1:
+                    calib_date_color = 'r'
+                else:
+                    calib_date_color = 'k'
+                self.ax.text(1.05, 0.5, 
+                             f'Calibrated on {calib_date.strftime("%Y-%m-%d %H:%M:%S")}', 
+                             ha='left',
+                             va='center', 
+                             size=10,
+                             rotation=90,
+                             color=calib_date_color,
+                             transform=self.ax.transAxes)
+
         self.ax.set_xlabel('Command Voltage (V)')
         self.ax.set_ylabel('Light Power (mW)')
         self.ax.set_title('Opto Calibration')
@@ -736,7 +753,6 @@ class ArduinoController(QWidget):
             print("No calibration data to save.")
             return
 
-        self.calibration_data['calibration_date'] = datetime.datetime.now().isoformat()
 
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
