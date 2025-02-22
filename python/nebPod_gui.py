@@ -1,9 +1,11 @@
 #TODO: add connection, port choosing, reconnection button
 import sys
 import subprocess
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial,QDialog,QCheckBox,QComboBox,QRadioButton,QHBoxLayout,QFrame
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGridLayout, QPushButton, QGroupBox, QLineEdit, QFileDialog, QLabel, QButtonGroup, QDial, QDialog, QCheckBox, QComboBox, QRadioButton, QHBoxLayout, QFrame
 from PyQt5.QtGui import QPixmap, QDoubleValidator, QIntValidator, QIcon
 from PyQt5.QtCore import Qt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -58,12 +60,15 @@ class ArduinoController(QWidget):
         self.fiber=self.implemented_fibers[0]
         self.light_wavelength=self.implemented_wavelengths[0]
         self.log_enabled=False
-
+        self.calibration_data = None
         self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
         self.increment_gate = True
         self.end_hb()
         self.open_valve(0)
+        self.figure, self.ax = plt.subplots()
+        self.calibration_canvas = FigureCanvasQTAgg(self.figure)
         self.init_ui()
+        self.plot_calibration_data()
 
     def init_ui(self):
         # Create layout
@@ -83,7 +88,6 @@ class ArduinoController(QWidget):
         browse_script_button = QPushButton("Choose script to run", self)
         browse_script_button.clicked.connect(self.browse_script)
 
-
         file_layout.addWidget(self.file_path_input)
         file_layout.addWidget(browse_button)
         script_dialog.addWidget(self.script_path_input)
@@ -98,6 +102,7 @@ class ArduinoController(QWidget):
         main_layout.addLayout(file_layout, 0, 0)
         main_layout.addLayout(script_dialog, 0, 1)
         main_layout.addLayout(script_run, 0, 2)
+        
         # Create box for connecting:
         connect_box = QGridLayout()
         port_label = QLabel('COM Port:')
@@ -161,7 +166,6 @@ class ArduinoController(QWidget):
         main_layout.addWidget(hb_group, 2, 0)
 
         # Create group box for pulse duration buttons (Pulses)
-           
         group_box_pulse = QGroupBox("Predefined pulses", self)
         pulse_layout = QGridLayout(group_box_pulse)
         pulse_layout.setAlignment(Qt.AlignTop)
@@ -185,7 +189,6 @@ class ArduinoController(QWidget):
         pulse_1000ms_button = QPushButton("1000ms Pulse", self)
         pulse_1000ms_button.clicked.connect(lambda: self.run_pulse(1))
 
-                
         hold_on_laser = QPushButton("Hold laser", self)
         hold_on_laser.pressed.connect(self.laser_on)
         hold_on_laser.released.connect(self.laser_off)
@@ -199,7 +202,6 @@ class ArduinoController(QWidget):
         pulse_layout.addWidget(hold_on_laser, 3, 1)
 
         main_layout.addWidget(group_box_pulse, 2, 1)
-
 
         # Custom pulses
         group_box_stim_params = QGroupBox("Custom pulse train", self)
@@ -261,8 +263,7 @@ class ArduinoController(QWidget):
         self.null_voltage_linedit.setValidator(QDoubleValidator(0.0,1.0,2))
         self.null_voltage_linedit.textChanged.connect(self.update_null_voltage)
         
-
-        #Change cobalt mode:
+        # Change cobalt mode:
         mode_label = QLabel('Select laser mode:')
         self.binary_radio = QRadioButton('Binary')
         self.sigmoidal_radio = QRadioButton('Sigmoidal')
@@ -279,13 +280,52 @@ class ArduinoController(QWidget):
         mode_box.addWidget(self.binary_radio)
         mode_box.addWidget(self.sigmoidal_radio)
 
+        # Calibration plot
+        max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
+        self.max_milliwatt_lineedit = QLineEdit()
+        self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
+        self.max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0,1000.0,1))
+        self.max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
+
+        wavelength_selector = QComboBox(self)
+        wavelength_selector.addItems(self.implemented_wavelengths)
+        wavelength_selector.setCurrentIndex(0)
+        wavelength_selector.activated.connect(self.select_wavelength)
+
+        fiber_selector = QComboBox(self)
+        fiber_selector.addItems(self.implemented_fibers)
+        fiber_selector.setCurrentIndex(0)
+        fiber_selector.activated.connect(self.select_fiber)
+
+        auto_calibrate_button = QPushButton("AUTO calibrate laser", self)
+        auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
+
+        self.calibration_plot_layout = QVBoxLayout()
+        self.calibration_plot_layout.addWidget(self.calibration_canvas)
+        main_layout.addLayout(self.calibration_plot_layout, 1, 3, 2, 1)
+
+        # Save calibration button
+        save_calibration_button = QPushButton("Save Calibration Data", self)
+        save_calibration_button.clicked.connect(self.save_calibration_data)
+        self.calibration_plot_layout.addWidget(auto_calibrate_button)
+        self.calibration_plot_layout.addWidget(save_calibration_button)
+
+        # Add widgets to the calibration plot layout
+        calibration_controls_layout = QHBoxLayout()
+        calibration_controls_layout.addWidget(wavelength_selector)
+        calibration_controls_layout.addWidget(fiber_selector)
+        calibration_controls_layout.addWidget(max_milliwatt_label)
+        calibration_controls_layout.addWidget(self.max_milliwatt_lineedit)
+
+        self.calibration_plot_layout.addLayout(calibration_controls_layout)
+        self.calibration_plot_layout.addWidget(auto_calibrate_button)
+        self.calibration_plot_layout.addWidget(save_calibration_button)
 
         # Layout
         stim_params_layout.addWidget(train_freq_label, 1, 0)  
         stim_params_layout.addWidget(train_dur_label, 2, 0)  
         stim_params_layout.addWidget(train_pulse_dur_label, 3, 0)  
         stim_params_layout.addWidget(amp_label_text, 4, 0)
-
         stim_params_layout.addWidget(self.train_freq_lineedit,1,1)
         stim_params_layout.addWidget(self.train_dur_lineedit,2,1)
         stim_params_layout.addWidget(self.pulse_dur_lineedit,3,1)
@@ -311,7 +351,7 @@ class ArduinoController(QWidget):
         main_layout.addWidget(group_box_stim_params, 1, 1)
 
         # ---------------------- #
-        #Phasic stims box
+        # Phasic stims box
         group_box_phasics = QGroupBox("Phasic stims", self)
         phasics_layout = QGridLayout(group_box_phasics)
         phasics_layout.setAlignment(Qt.AlignTop)
@@ -334,8 +374,7 @@ class ArduinoController(QWidget):
         exp_train = QPushButton(f"Run expiratory phasic trains\n({self.exp_phasic_duration:.0f}s of stimulations)", self)
         exp_train.clicked.connect(self.run_exp_phasic_train)
 
-        
-        tagging_button = QPushButton(f"Run tagging (75 pulses, 3s IPI, 50ms pulse full amp)", self)
+        tagging_button = QPushButton(f"Run tagging (75 pulses, 3s IPI, 10ms pulse )", self)
         tagging_button.clicked.connect(self.run_tagging)
 
         phasics_layout.addWidget(insp_phasic_button, 0, 0)
@@ -348,7 +387,6 @@ class ArduinoController(QWidget):
 
         main_layout.addWidget(group_box_phasics, 1, 2)
 
-        
         # ---------------------- #
         # Create group box for additional actions (Actions)
         group_box_actions = QGroupBox("Additional Actions", self)
@@ -368,24 +406,7 @@ class ArduinoController(QWidget):
         play_sync_button = QPushButton("Play Synchronize", self)
         play_sync_button.clicked.connect(self.synch_audio)
 
-        auto_calibrate_button = QPushButton("AUTO calibrate laser", self)
-        auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
 
-        max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
-        self.max_milliwatt_lineedit = QLineEdit()
-        self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
-        self.max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0,1000.0,1))
-        self.max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
-
-        wavelength_selector = QComboBox(self)
-        wavelength_selector.addItems(self.implemented_wavelengths)
-        wavelength_selector.setCurrentIndex(0)
-        wavelength_selector.activated.connect(self.select_wavelength)
-
-        fiber_selector = QComboBox(self)
-        fiber_selector.addItems(self.implemented_fibers)
-        fiber_selector.setCurrentIndex(0)
-        fiber_selector.activated.connect(self.select_fiber)
 
         self.record_button = QPushButton('Start Recording', self)
         self.record_button.setCheckable(True)
@@ -403,15 +424,11 @@ class ArduinoController(QWidget):
         self.log_entry_button = QPushButton('Submit note to log')
         self.log_entry_button.clicked.connect(self.submit_log)
 
+
         actions_layout.addWidget(start_camera_button, 0, 0)
         actions_layout.addWidget(stop_camera_button, 0, 1)
         actions_layout.addWidget(play_tone_button, 0, 2)
         actions_layout.addWidget(play_sync_button, 0, 3)
-        actions_layout.addWidget(wavelength_selector, 2, 0)
-        actions_layout.addWidget(fiber_selector, 2, 1)
-        actions_layout.addWidget(max_milliwatt_label, 2, 2)
-        actions_layout.addWidget(self.max_milliwatt_lineedit, 2, 3)
-        actions_layout.addWidget(auto_calibrate_button, 2, 4)
         actions_layout.addWidget(self.record_button, 3, 0)
         actions_layout.addWidget(self.increment_gate_checkbox, 3, 1)  # Add checkbox next to record button
         actions_layout.addWidget(log_label, 4, 0)
@@ -425,6 +442,7 @@ class ArduinoController(QWidget):
         self.setGeometry(100, 100, 800, 500)
         self.setWindowTitle("Nick's Fancy Experiment Controller (gooey)")
         self.show()
+        self.plot_calibration_data()
     
 
     def connect(self):
@@ -534,7 +552,9 @@ class ArduinoController(QWidget):
                                     log_enabled=self.log_enabled
                                     )
     def run_tagging(self):
-        self.controller.run_tagging(log_enabled=self.log_enabled)
+        self.controller.run_tagging(log_enabled=self.log_enabled,
+                                    pulse_duration_sec=0.01,
+                                    amp=self.laser_amp)
 
                 
     def play_tone(self):
@@ -671,17 +691,52 @@ class ArduinoController(QWidget):
             time.sleep(sleep_time)
     
     def auto_calibrate_laser(self):
-        volts_supplied,powers = self.controller.auto_calibrate(plot=True)
-        data_out = {}
-        data_out['command_voltage'] = volts_supplied.tolist()
-        data_out['light_power'] = powers.tolist()
-        data_out['fiber'] = self.fiber
-        data_out['wavelength'] = self.light_wavelength
-        save_fn = self.save_path.joinpath('opto_calibration.json')
-        print(f'Saving calibration to {save_fn}')
-        with open(save_fn,'w') as fid:
-            json.dump(data_out, fid,indent=4)
+        volts_supplied, powers = self.controller.auto_calibrate(plot=False)
+        self.calibration_data = {
+            'command_voltage': volts_supplied.tolist(),
+            'light_power': powers.tolist(),
+            'fiber': self.fiber,
+            'wavelength': self.light_wavelength
+        }
+        self.plot_calibration_data()
 
+    def plot_calibration_data(self):
+        self.ax.clear()
+        colors = {'473nm':'#00b7ff','635nm':'#ff3900','undefined':'k'}
+        if self.calibration_data is None:
+            self.ax.set_xlim(0, 1)
+            self.ax.set_ylim(0, 10)
+            self.ax.text(0.5, 5, 'No calibration data', ha='center', va='center', size=20, color='r')
+        else:
+            volts_supplied = np.array(self.calibration_data['command_voltage'])
+            powers = np.array(self.calibration_data['light_power'])
+            self.ax.plot(volts_supplied, powers, 'o-',color=colors[self.light_wavelength])
+            pwr_landmarks = [2.5, 5, 10]
+            idxs = np.searchsorted(powers, pwr_landmarks) - 1
+            for idx, pwr in zip(idxs, pwr_landmarks):
+                self.ax.axhline(pwr, color='k', ls='--')
+                self.ax.axvline(volts_supplied[idx], color='k', ls='--')
+                self.ax.text(volts_supplied[idx], pwr, f'{pwr:.1f}mW', ha='center', va='center', color='k', rotation=90)
+        
+        self.ax.set_xlabel('Command Voltage (V)')
+        self.ax.set_ylabel('Light Power (mW)')
+        self.ax.set_title('Opto Calibration')
+        self.ax.grid(True)
+        self.calibration_canvas.draw()
+
+
+    def save_calibration_data(self):
+        if self.calibration_data is None:
+            print("No calibration data to save.")
+            return
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Calibration Data", "opto_calibration.json", "JSON Files (*.json)", options=options)
+        if file_name:
+            with open(file_name, 'w') as fid:
+                json.dump(self.calibration_data, fid, indent=4)
+            print(f"Calibration data saved to {file_name}")
 
     def select_wavelength(self):
         self.light_wavelength = self.sender().currentText()

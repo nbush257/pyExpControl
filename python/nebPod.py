@@ -50,10 +50,10 @@ import re
 import os
 import sys
 from pathlib import Path
+from PyQt5.QtWidgets import QApplication, QDialog, QHBoxLayout, QVBoxLayout,QLabel, QLineEdit, QPushButton, QMessageBox
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 SUBJECT_DIR = Path(r"D:\sglx_data")
-from PyQt5.QtWidgets import QApplication, QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
-
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
@@ -1752,77 +1752,46 @@ def get_elapsed_time(start_time):
     return elapsed_time
 
 class LaserAmpDialog(QDialog):
-    def __init__(self, multi=False):
-        super().__init__()
+    def __init__(self, multi=False, parent=None):
+        super().__init__(parent)
         self.multi = multi
-        self.initUI()
+        self.init_ui()
 
-    def initUI(self):
-        self.setWindowTitle('Set Laser Amplitude')
-        layout = QHBoxLayout()
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        self.load_button = QPushButton("Load Calibration File", self)
+        self.load_button.clicked.connect(self.load_calibration_file)
+        layout.addWidget(self.load_button)
 
-        if self.multi:
-            self.min_label = QLabel('Min Amplitude (0-1):')
-            self.min_input = QLineEdit(self)
-            layout.addWidget(self.min_label)
-            layout.addWidget(self.min_input)
+        self.calibration_plot_layout = QVBoxLayout()
+        self.calibration_plot_widget = QWidget(self)
+        self.calibration_plot_layout.addWidget(self.calibration_plot_widget)
+        layout.addLayout(self.calibration_plot_layout)
 
-            self.max_label = QLabel('Max Amplitude (0-1):')
-            self.max_input = QLineEdit(self)
-            layout.addWidget(self.max_label)
-            layout.addWidget(self.max_input)
+    def load_calibration_file(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getOpenFileName(self, "Load Calibration File", "", "JSON Files (*.json)", options=options)
+        if file_name:
+            with open(file_name, 'r') as fid:
+                self.calibration_data = json.load(fid)
+            self.plot_calibration_data()
 
-            self.step_label = QLabel('Step:')
-            self.step_input = QLineEdit(self)
-            layout.addWidget(self.step_label)
-            layout.addWidget(self.step_input)
-        else:
-            self.label = QLabel('Set the laser power (0-1):')
-            self.input = QLineEdit(self)
-            layout.addWidget(self.label)
-            layout.addWidget(self.input)
+    def plot_calibration_data(self):
+        if self.calibration_data is None:
+            return
 
-        self.ok_button = QPushButton('OK', self)
-        self.ok_button.clicked.connect(self.on_ok)
-        layout.addWidget(self.ok_button)
+        volts_supplied = np.array(self.calibration_data['command_voltage'])
+        powers = np.array(self.calibration_data['light_power'])
 
-        self.setLayout(layout)
+        plt.figure()
+        plt.plot(volts_supplied, powers, 'o-')
+        plt.xlabel('Command Voltage (V)')
+        plt.ylabel('Light Power (mW)')
+        plt.title('Opto Calibration')
+        plt.grid(True)
 
-    def on_ok(self):
-        if self.multi:
-            try:
-                min_val = float(self.min_input.text())
-                max_val = float(self.max_input.text())
-                step = float(self.step_input.text())
-                if not (0 <= min_val <= 1) or not (0 <= max_val <= 1) or step <= 0:
-                    msg = 'Please enter valid numbers between 0 and 1 for min and max, and a positive number for step.'
-                    raise ValueError
-
-                if min_val > max_val:
-                    msg = 'Min amplitude must be less than max amplitude.'
-                    raise ValueError
-                
-                if step > max_val - min_val:
-                    msg = 'Step size must be less than the difference between min and max amplitudes.'
-                    raise ValueError
-
-                if min_val == max_val:
-                    self.amplitudes = [min_val]
-                else:
-                    amps = np.round(np.arange(min_val, max_val, step), 2).tolist()
-                    amps = amps + [max_val] if amps[-1] != max_val else amps
-                    self.amplitudes = amps
-                print(f"Amplitudes set to {self.amplitudes}")
-                self.accept()
-            except ValueError:
-                QMessageBox.warning(self, 'Invalid Input', msg)
-        else:
-            try:
-                val = float(self.input.text())
-                if not (0 <= val <= 1):
-                    raise ValueError
-                self.amplitudes = [val]
-                print(f"Amplitudes set to {self.amplitudes}")
-                self.accept()
-            except ValueError:
-                QMessageBox.warning(self, 'Invalid Input', 'Please enter a valid number between 0 and 1.')
+        # Embed the plot in the QWidget
+        canvas = FigureCanvasQTAgg(plt.gcf())
+        self.calibration_plot_layout.addWidget(canvas)
+        canvas.draw()
