@@ -34,7 +34,7 @@ def main(controller):
 
     controller.preroll(gas='O2', use_camera=False, set_olfactometer=False,settle_sec=5)
     controller.present_gas('O2',BASELINE_TIME)
-    amp = controller.laser_command_amp
+    amps = controller.laser_command_amps[0]
 
     # Pulses
     pulse_dur = PULSE_DUR

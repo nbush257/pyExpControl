@@ -45,6 +45,7 @@ import functools
 import os
 import sys
 from pathlib import Path
+from PyQt5.QtWidgets import QApplication, QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
@@ -1270,28 +1271,22 @@ class Controller:
         )
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
-    def get_laser_amp_from_user(self):
+    def get_laser_amp_from_user(self, multi=False):
         """
-        Prompt the user to input the laser power amplitude.
+        Prompt the user to input the laser power amplitude using a Qt dialog box.
 
-        This method continuously prompts the user to input a valid laser power amplitude between 0 and 1.
-        It validates the input to ensure it is a float within the specified range.
+        This method opens a Qt dialog box to input a valid laser power amplitude between 0 and 1.
+        If multi is True, the dialog box will have three inputs for min, max, and step to generate a list of amplitudes.
 
         Returns:
             None
         """
-        while True:
-            val = input("Set the laser power (0-1)")
-            try:
-                val = float(val)
-                if val < 0 or val > 1:
-                    print("Invalid input. Must be between 0 and 1")
-                else:
-                    break
-            except ValueError:
-                print("Invalid input. Must be a number")
-        self.laser_command_amp = val
-        print(f"Laser amplitude set to {self.laser_command_amp}v")
+        app = QApplication(sys.argv)
+        dialog = LaserAmpDialog(multi)
+        if dialog.exec_() == QDialog.Accepted:
+            self.laser_command_amps = dialog.amplitudes
+            self.laser_command_amp = dialog.amplitudes[0]
+        app.exit()
 
     @logger
     @event_timer
@@ -1424,7 +1419,7 @@ class Controller:
         self.save_log()
 
     def preroll(
-        self, use_camera=True, gas="O2", settle_sec=None, set_olfactometer=False
+        self, use_camera=True, gas="O2", settle_sec=None, set_olfactometer=False,multi_amp=False
     ):
         """
         Boilerplate commands to start an experiment.
@@ -1461,7 +1456,7 @@ class Controller:
                 self.present_odor("blank")
         self.present_gas(gas)
         self.get_logname_from_user()
-        self.get_laser_amp_from_user()
+        self.get_laser_amp_from_user(multi=multi_amp)
         self.settle()
         self.start_recording()
         if use_camera:
@@ -1540,3 +1535,79 @@ def get_elapsed_time(start_time):
     curr_time = time.time()
     elapsed_time = curr_time - start_time
     return elapsed_time
+
+class LaserAmpDialog(QDialog):
+    def __init__(self, multi=False):
+        super().__init__()
+        self.multi = multi
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Set Laser Amplitude')
+        layout = QHBoxLayout()
+
+        if self.multi:
+            self.min_label = QLabel('Min Amplitude (0-1):')
+            self.min_input = QLineEdit(self)
+            layout.addWidget(self.min_label)
+            layout.addWidget(self.min_input)
+
+            self.max_label = QLabel('Max Amplitude (0-1):')
+            self.max_input = QLineEdit(self)
+            layout.addWidget(self.max_label)
+            layout.addWidget(self.max_input)
+
+            self.step_label = QLabel('Step:')
+            self.step_input = QLineEdit(self)
+            layout.addWidget(self.step_label)
+            layout.addWidget(self.step_input)
+        else:
+            self.label = QLabel('Set the laser power (0-1):')
+            self.input = QLineEdit(self)
+            layout.addWidget(self.label)
+            layout.addWidget(self.input)
+
+        self.ok_button = QPushButton('OK', self)
+        self.ok_button.clicked.connect(self.on_ok)
+        layout.addWidget(self.ok_button)
+
+        self.setLayout(layout)
+
+    def on_ok(self):
+        if self.multi:
+            try:
+                min_val = float(self.min_input.text())
+                max_val = float(self.max_input.text())
+                step = float(self.step_input.text())
+                if not (0 <= min_val <= 1) or not (0 <= max_val <= 1) or step <= 0:
+                    msg = 'Please enter valid numbers between 0 and 1 for min and max, and a positive number for step.'
+                    raise ValueError
+
+                if min_val > max_val:
+                    msg = 'Min amplitude must be less than max amplitude.'
+                    raise ValueError
+                
+                if step > max_val - min_val:
+                    msg = 'Step size must be less than the difference between min and max amplitudes.'
+                    raise ValueError
+
+                if min_val == max_val:
+                    self.amplitudes = [min_val]
+                else:
+                    amps = np.round(np.arange(min_val, max_val, step), 2).tolist()
+                    amps = amps + [max_val] if amps[-1] != max_val else amps
+                    self.amplitudes = amps
+                print(f"Amplitudes set to {self.amplitudes}")
+                self.accept()
+            except ValueError:
+                QMessageBox.warning(self, 'Invalid Input', msg)
+        else:
+            try:
+                val = float(self.input.text())
+                if not (0 <= val <= 1):
+                    raise ValueError
+                self.amplitudes = [val]
+                print(f"Amplitudes set to {self.amplitudes}")
+                self.accept()
+            except ValueError:
+                QMessageBox.warning(self, 'Invalid Input', 'Please enter a valid number between 0 and 1.')
