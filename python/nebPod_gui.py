@@ -592,7 +592,34 @@ class ArduinoController(QWidget):
             self.script_filename = Path(file_name)
             print(f'Selected script: {file_name}')
 
+    def continue_anyway(self):
+        # Popup a dialog box that asks user if they are sure they want to  run a script
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Warning")
+        dialog.setWindowModality(Qt.ApplicationModal)
+        dialog_layout = QVBoxLayout(dialog)
+        dialog_label = QLabel("SpikeGLX is not running. Are you sure you want to continue with this script?")
+        dialog_layout.addWidget(dialog_label)
+        yes_button = QPushButton("Yes", dialog)
+        yes_button.clicked.connect(dialog.accept)
+        no_button = QPushButton("No", dialog)
+        no_button.clicked.connect(dialog.reject)
+        dialog_layout.addWidget(yes_button)
+        dialog_layout.addWidget(no_button)
+        dialog.exec_()
+        return(dialog.result() == QDialog.Accepted)
+
+
     def run_script(self):
+        if self.controller.record_control == 'sglx':
+            try:
+                self.controller.check_is_running()
+            except Exception as e:
+                print(f"Error: {e}")
+                if self.continue_anyway():
+                    pass
+                else:
+                    return None
         if (self.script_filename is None) or (not self.script_filename.exists()):
             print(f'Script {self.script_filename} not found. Please select a valid file')
             return None

@@ -1059,6 +1059,11 @@ class Controller:
             bool: True if running, False otherwise.
         """
         running = c_bool(False)
+        if self.sglx_handle is None:
+            try:
+                self.connect_to_sglx()
+            except:
+                raise ValueError("Could not connect to spikeGLX")
         ok = c_sglx_isRunning(byref(running),self.sglx_handle)
         if not running.value:
             raise ValueError("SpikeGLX is not running. Start a run (i.e. active spikeglx window).")
