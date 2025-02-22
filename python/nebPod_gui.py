@@ -60,6 +60,7 @@ class ArduinoController(QWidget):
         self.log_enabled=False
 
         self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
+        self.increment_gate = True
         self.end_hb()
         self.open_valve(0)
         self.init_ui()
@@ -367,10 +368,6 @@ class ArduinoController(QWidget):
         play_sync_button = QPushButton("Play Synchronize", self)
         play_sync_button.clicked.connect(self.synch_audio)
 
-        # calibrate_button = QPushButton("Manual calibrate laser", self)
-        # calibrate_button.clicked.connect(lambda: self.calibrate_laser())
-        # calibrate_button.setStyleSheet("background-color: #801502")
-
         auto_calibrate_button = QPushButton("AUTO calibrate laser", self)
         auto_calibrate_button.clicked.connect(lambda: self.auto_calibrate_laser())
 
@@ -390,11 +387,15 @@ class ArduinoController(QWidget):
         fiber_selector.setCurrentIndex(0)
         fiber_selector.activated.connect(self.select_fiber)
 
-    
         self.record_button = QPushButton('Start Recording', self)
         self.record_button.setCheckable(True)
         self.record_button.setStyleSheet(f"background-color: {RECORD_INACTIVE_COLOR}")
         self.record_button.clicked.connect(self.toggle_recording)
+
+        # Add increment_gate checkbox
+        self.increment_gate_checkbox = QCheckBox("increment_gate", self)
+        self.increment_gate_checkbox.setChecked(self.increment_gate)
+        self.increment_gate_checkbox.stateChanged.connect(self.toggle_increment_gate)
 
         log_label = QLabel('Type your note:')
         self.log_lineedit = QLineEdit()
@@ -407,17 +408,15 @@ class ArduinoController(QWidget):
         actions_layout.addWidget(play_tone_button, 0, 2)
         actions_layout.addWidget(play_sync_button, 0, 3)
         actions_layout.addWidget(wavelength_selector, 2, 0)
-        actions_layout.addWidget(fiber_selector,2,1)
-
-        actions_layout.addWidget(max_milliwatt_label,2,2)
-        actions_layout.addWidget(self.max_milliwatt_lineedit,2,3)
+        actions_layout.addWidget(fiber_selector, 2, 1)
+        actions_layout.addWidget(max_milliwatt_label, 2, 2)
+        actions_layout.addWidget(self.max_milliwatt_lineedit, 2, 3)
         actions_layout.addWidget(auto_calibrate_button, 2, 4)
-
-
         actions_layout.addWidget(self.record_button, 3, 0)
-        actions_layout.addWidget(log_label,4,0)
-        actions_layout.addWidget(self.log_lineedit,4,1,1,2)
-        actions_layout.addWidget(self.log_entry_button,4,3)
+        actions_layout.addWidget(self.increment_gate_checkbox, 3, 1)  # Add checkbox next to record button
+        actions_layout.addWidget(log_label, 4, 0)
+        actions_layout.addWidget(self.log_lineedit, 4, 1, 1, 2)
+        actions_layout.addWidget(self.log_entry_button, 4, 3)
 
         main_layout.addWidget(group_box_actions, 2, 2)
 
@@ -747,11 +746,13 @@ class ArduinoController(QWidget):
             self.stop_record()
 
     def start_record(self):
-        self.controller.start_recording(silent=True)
+        self.controller.start_recording(increment_gate = self.increment_gate,silent=True)
 
     def stop_record(self):
         self.controller.stop_recording(reset_to_O2=False,silent=True,log_enabled=True)
 
+    def toggle_increment_gate(self, state):
+        self.increment_gate = bool(state)
 
     # Shutdown
     def closeEvent(self, event):

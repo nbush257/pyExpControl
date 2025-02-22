@@ -954,11 +954,12 @@ class Controller:
 
     @logger
     @event_timer
-    def start_recording(self,silent=True,verbose=True):
+    def start_recording(self,increment_gate=True,silent=True,verbose=True):
         """
         Start a recording using either the spikeglx api or the TTL method.
 
         Args:
+            increment_gate (bool, optional): If True, increment the gate number. Defaults to True. Only used if using spikeglx
             verbose (bool, optional): Verbosity flag. If True, prints a message indicating the recording has started. Defaults to True.
             silent (bool, optional): If True, do not play an audio tone. Defaults to True.
 
@@ -969,8 +970,10 @@ class Controller:
                 - params_out (dict): Empty dictionary.
         """
         if self.record_control=='sglx':
-            self.start_recording_sglx()
+            self.start_recording_sglx(increment_gate=increment_gate)
         elif self.record_control=='ttl':
+            if increment_gate:
+                print('incrementing gate flag is not valid in TTL mode, ignoring')
             self.start_recording_TTL()
         else:
             raise ValueError('record_control must be sglx or ttl')
