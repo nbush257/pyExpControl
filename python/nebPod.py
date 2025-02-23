@@ -188,7 +188,34 @@ def logger(func):
 
     return wrapper
 
+def repeater(func):
+    """
+    Decorator that repeats a function call a specified number of times.
 
+    Args:
+        func (function): The function to be decorated.
+
+    Returns:
+        function: The wrapped function with repetition functionality.
+    """
+    def wrapper(self, *args, n=None, interval=5, **kwargs):
+        if n is None:
+            func(self, *args, **kwargs)
+            return
+        
+
+        print(f"Repeating {n} times with {interval} second IPI")
+        print("Arguments:")
+        for arg in args:
+            print(f"  - {arg}")
+        for key, value in kwargs.items():
+            print(f"  - {key}: {value}")
+
+        for ii in range(n):
+            func(self, *args, **kwargs)
+            self.wait(interval, msg=f"Repetition {ii+1} of {n}")
+
+    return wrapper
 class Controller:
     """
     Controller class to manage the communication and control of the NPX rig.
@@ -246,10 +273,10 @@ class Controller:
             )
 
         # If the user hits ctrl+c, close the controller
-        signal.signal(signal.SIGINT, self.graceful_close)
+        signal.signal(signal.SIGINT, self.handle_interrupt)
 
         # If an uncaught error occurs, close the controller
-        sys.excepthook = self.graceful_close
+        sys.excepthook = self.handle_exception
 
         # Set the gas map if supplied. This maps the teensy pin to the gas
         self.gas_map = gas_map or {
@@ -297,6 +324,14 @@ class Controller:
             self.sglx_handle = None
             print("Failed to connect to SpikeGLX")
         return ok
+
+
+    def handle_exception(self, exc_type, exc_value, exc_traceback):
+        """
+        Handle uncaught exceptions.
+        """
+        print("Uncaught exception:", exc_type, exc_value)
+        self.close()
 
     @logger
     @event_timer
@@ -385,6 +420,7 @@ class Controller:
 
     @logger
     @interval_timer
+    @repeater
     def timed_hb(self, duration, verbose=False):
         """
         Start and end a hering breuer stimulation by wrapping to the hering breuer sub-processes
@@ -522,6 +558,7 @@ class Controller:
             f"initialized cobalt with mode {mode} and power meter pin {power_meter_pin}"
         ) if verbose else None
 
+    @repeater
     @logger
     @event_timer
     def run_pulse(self, pulse_duration_sec, amp, verbose=False):
@@ -554,6 +591,7 @@ class Controller:
 
     @logger
     @interval_timer
+    @repeater
     def run_train(self, duration_sec, freq, amp, pulse_duration_sec, verbose=False):
         """
         Run a single train of opto pulses.
@@ -638,11 +676,11 @@ class Controller:
 
     @logger
     @interval_timer
+    @repeater
     def phasic_stim(
         self,
         phase,
         mode,
-        n,
         amp,
         duration_sec,
         intertrain_interval_sec=30.0,
@@ -656,7 +694,6 @@ class Controller:
         Args:
             phase (str): Phase of the diaphragm activity. Must be 'e' (Expiratory) or 'i' (Inspiratory).
             mode (str): Stimulation mode. Must be 'h' (hold), 't' (train), or 'p' (pulse).
-            n (int): Number of repetitions.
             amp (float): Amplitude of stimulation (0-1).
             duration_sec (float): Duration of the stimulation window in seconds.
             intertrain_interval_sec (float, optional): Time between stimulation windows in seconds. Defaults to 30.0.
@@ -668,6 +705,7 @@ class Controller:
             dict: Output dictionary with function call details.
 
         """
+        
         assert mode in ["h", "t", "p"], f"Stimulation mode {mode} not supported"
         assert phase in ["e", "i"], f"Stimulation trigger {phase} not supported"
 
@@ -695,8 +733,8 @@ class Controller:
                 f"Running opto phasic stims:{phase_map[phase]},{mode_map[mode]},{freq=},{pulse_duration_sec=}"
             )
 
-        if n == 1:
-            intertrain_interval_sec = 0.0
+        # This is leftover from some unfixed teensy code which allowed user to set the number of stimulations
+        intertrain_interval_sec = 0.0
 
         intertrain_interval_ms = sec2ms(intertrain_interval_sec)
         duration_ms = sec2ms(duration_sec)
@@ -708,7 +746,7 @@ class Controller:
         self.serial_port.serialObject.write("p".encode("utf-8"))
         self.serial_port.serialObject.write(phase.encode("utf-8"))
         self.serial_port.serialObject.write(mode.encode("utf-8"))
-        self.serial_port.write(n, "uint8")
+        self.serial_port.write(1, "uint8") # this is leftover from some unfixed teensy code which allowed user to set the number of stimulations
         self.serial_port.write(duration_ms, "uint16")
         self.serial_port.write(intertrain_interval_ms, "uint16")
         self.serial_port.write(amp_int, "uint8")
@@ -1697,7 +1735,8 @@ class Controller:
 
         return ("present_odor", "odor", {"odor": odor})
 
-    def graceful_close(self, signum, frame):
+    def handle_interrupt(self, signum, frame):
+        print("Keyboard interrupt detected")
         self.close(self)
         sys.exit(0)
 
@@ -1706,7 +1745,7 @@ class Controller:
         Stop the recordings, close the camera trigger, and save the log.
         """
         self.stop_recording()
-        print("Keyboard interrupted! Shutting down.")
+        print("Shutting down gracefully")
         self.make_log_entry("Killed", "event")
         self.stop_camera_trig()
         self.save_log()
@@ -1985,7 +2024,7 @@ class LaserAmpDialog(QDialog):
                 layout_vals.addWidget(self.label)
                 layout_vals.addWidget(self.input)
 
-        self.ok_button = QPushButton("Submit", self)
+        self.ok_button = QPushButton("Submit (or skip if empty)", self)
         self.ok_button.clicked.connect(self.on_ok)
         layout.addWidget(self.ok_button)
 

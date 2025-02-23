@@ -31,31 +31,16 @@ pulse_dur = 0.01
 if __name__=='__main__':
     controller = Controller(PORT)
 
-    # controller.preroll(settle_sec=2)
-    # controller.wait(2)
-    # controller.make_log_entry('Test log entry','event')
-    # amps = controller.mW_to_volts([5,10,20,30])
-    # for amp in amps:
-    #     for ii in range(3):
-    #         controller.run_pulse(0.1,amp,verbose=True)
-    #         controller.wait(1)
-    # controller.wait(2)
-    # controller.stop_recording()
-
-    controller.preroll(settle_sec=2,choose_laser_amps=True)
+    controller.preroll(settle_sec=2)
     controller.wait(2)
-    controller.make_log_entry('Test log entry2','event')
-    amps = controller.laser_command_amps
+    amp = 0.65
+    n = 5
+    interval=3
+    # controller.run_pulse(pulse_duration_sec=0.1,amp=amp,n=n,interval=interval,verbose=True)
+    controller.run_pulse(pulse_duration_sec=0.1,amp=amp,verbose=True)
     controller.wait(10)
     controller.stop_recording()
 
-    controller.wait(2)
-    controller.preroll(settle_sec=2)
-    controller.wait(2)
-    controller.make_log_entry('Test log entry2','event')
-    print(controller.laser_command_amps)
-    controller.wait(2)
-    controller.stop_recording()
 
 
 
