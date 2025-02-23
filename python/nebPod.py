@@ -203,9 +203,10 @@ def repeater(func):
             func(self, *args, **kwargs)
             return
         
-
+        print('\n')
+        print('-'*50)
         print(f"Repeating {n} times with {interval} second IPI")
-        print("Arguments:")
+        print("Parameters:")
         for arg in args:
             print(f"  - {arg}")
         for key, value in kwargs.items():
@@ -272,8 +273,8 @@ class Controller:
                 f"No Serial port found on {port}. GUI will show up but not do anything"
             )
 
-        # If the user hits ctrl+c, close the controller
-        signal.signal(signal.SIGINT, self.handle_interrupt)
+        # If the user hits ctrl+c, close the controller - this overruns my wait interruption
+        # signal.signal(signal.SIGINT, self.handle_interrupt)
 
         # If an uncaught error occurs, close the controller
         sys.excepthook = self.handle_exception
@@ -1736,10 +1737,10 @@ class Controller:
 
         return ("present_odor", "odor", {"odor": odor})
 
-    def handle_interrupt(self, signum, frame):
-        print("Keyboard interrupt detected")
-        self.close(self)
-        sys.exit(0)
+    # def handle_interrupt(self, signum, frame):
+    #     print("Keyboard interrupt detected")
+    #     self.close(self)
+    #     sys.exit(0)
 
     def close(self):
         """
