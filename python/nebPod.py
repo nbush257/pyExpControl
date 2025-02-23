@@ -50,7 +50,6 @@ import datetime
 import re
 import os
 import sys
-import signal
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication,
@@ -272,9 +271,6 @@ class Controller:
             print(
                 f"No Serial port found on {port}. GUI will show up but not do anything"
             )
-
-        # If the user hits ctrl+c, close the controller - this overruns my wait interruption
-        # signal.signal(signal.SIGINT, self.handle_interrupt)
 
         # If an uncaught error occurs, close the controller
         sys.excepthook = self.handle_exception
