@@ -8,6 +8,12 @@ First, install dependencies
 `pip install -r "D:\pyExpControl\python\requirements.txt"`
 or wherever you put the pyExpControl directory
 
+Also download the spikeglx-sdk from Bill Karsh: https://github.com/billkarsh/SpikeGLX-CPP-SDK, and copy the DLLs into the sglx pkg folder as instructed from those installation directions.
+You will need to modify the nebPod.py file so that the spikeglx path points to that sglx_pkg folder. 
+>[!NOTE]
+>This is already done at JMB971
+
+
 #### Usage for gui:
 ```
 cd /path/to/nebPod/python
@@ -16,10 +22,11 @@ python nebPod-gui.py
 
 #### Usage for script:
 ```
-cd /path/to/nebPod/python
-python scripts/<your_script.py> 
+cd /path/to/nebPod/python/scripts
+python <your_script.py> 
 ```
-Some example scripts are included
+Some example scripts are included.
+Scripts will need to `sys.path.append(/path/to/ArCOM/Python3)` and `sys.path.append(/path/to/nebPod/python)` 
 
 See the python-level readme for more info.
 
