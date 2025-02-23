@@ -1,4 +1,3 @@
-
 """
 Pin mappings are generally handled by teensy firmware, so this should be general.
 
@@ -32,12 +31,14 @@ Example:
         params = dict(param1=param1, param2=param2)
         return (label, category, params)
 """
+
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
 # TODO: incorporate spikeglx  run name getting and setting
-    #TODO: Get UI to decide if we want to increment the gate
-    #TODO: test and clean up the directory sglx directory saving
+# TODO: Get UI to decide if we want to increment the gate
+# TODO: test and clean up the directory sglx directory saving
 import sys
-sys.path.append('D:/pyExpControl/ArCOM/Python3')
+
+sys.path.append("D:/pyExpControl/ArCOM/Python3")
 from ArCOM import ArCOMObject
 import time
 import matplotlib.pyplot as plt
@@ -49,13 +50,26 @@ import datetime
 import re
 import os
 import sys
+import signal
 from pathlib import Path
-from PyQt5.QtWidgets import QApplication, QDialog, QHBoxLayout, QVBoxLayout,QLabel, QLineEdit, QPushButton, QMessageBox
+from PyQt5.QtWidgets import (
+    QApplication,
+    QDialog,
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QMessageBox,
+)
+
 # Import qwidget
 from PyQt5.QtWidgets import QWidget
-# Import QApplication and QLabel  
+
+# Import QApplication and QLabel
 from PyQt5.QtWidgets import QApplication, QLabel
-#Import QFIledialog
+
+# Import QFIledialog
 from PyQt5.QtWidgets import QFileDialog
 import json
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -65,7 +79,7 @@ curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
 
-sglx_api_path = Path(r'C:\helpers\SpikeGLX-CPP-SDK\Windows\Python\sglx_pkg')
+sglx_api_path = Path(r"C:\helpers\SpikeGLX-CPP-SDK\Windows\Python\sglx_pkg")
 os.environ["PATH"] = str(sglx_api_path) + os.pathsep + os.environ["PATH"]
 
 sys.path.append(str(sglx_api_path))
@@ -73,6 +87,7 @@ SGLX_ADDR = "localhost"
 SGLX_PORT = 4142
 from sglx import *
 from ctypes import byref, POINTER, c_int, c_short, c_bool, c_char_p
+
 
 def interval_timer(func):
     """
@@ -164,7 +179,7 @@ def logger(func):
         function: The wrapped function with logging functionality.
     """
 
-    def wrapper(self, *args, log_enabled=True,**kwargs):
+    def wrapper(self, *args, log_enabled=True, **kwargs):
         result = func(self, *args, **kwargs)
         if log_enabled:
             self.log.append(result)
@@ -195,13 +210,20 @@ class Controller:
         gate_dest_default (str): Default destination path for gate data.
         log_filename (str): Log filename.
         init_time (float): Initialization time.
-        laser_command_amp (float): Laser command amplitude.
+        laser_command_amps (list): List of Voltages to send to laser command amplitude.
         odor_map (dict): Mapping of odors.
         record_control (str): May be 'sglx' or 'ttl'. If 'sglx', the controller will use the SpikeGLX API to control recording. If 'ttl', the controller will use a TTL pulse to control recording.
         laser_calibration_data (dict): Dictionary to store laser calibration data.
     """
 
-    def __init__(self, port, gas_map=None, cobalt_mode="S", null_voltage=0.4,record_control='sglx'):
+    def __init__(
+        self,
+        port,
+        gas_map=None,
+        cobalt_mode="S",
+        null_voltage=0.4,
+        record_control="sglx",
+    ):
         """
         Initialize the Controller object.
 
@@ -222,6 +244,13 @@ class Controller:
             print(
                 f"No Serial port found on {port}. GUI will show up but not do anything"
             )
+
+        # If the user hits ctrl+c, close the controller
+        signal.signal(signal.SIGINT, self.graceful_close)
+
+        # If an uncaught error occurs, close the controller
+        sys.excepthook = self.graceful_close
+
         # Set the gas map if supplied. This maps the teensy pin to the gas
         self.gas_map = gas_map or {
             0: "O2",
@@ -248,12 +277,12 @@ class Controller:
         self.init_cobalt(
             null_voltage=null_voltage
         )  # Initialize the laser controller object
-        self.laser_command_amp = None
+        self.laser_command_amps = []
         self.odor_map = None
-        self.increment_gate=True
+        self.increment_gate = True
         self.sglx_handle = None
-        assert record_control in ['sglx','ttl'], 'record_control must be sglx or ttl'
-        self.record_control=record_control
+        assert record_control in ["sglx", "ttl"], "record_control must be sglx or ttl"
+        self.record_control = record_control
         self.laser_calibration_data = None
 
     def connect_to_sglx(self):
@@ -261,7 +290,7 @@ class Controller:
         Connect to the SpikeGLX server.
         """
         self.sglx_handle = c_sglx_createHandle()
-        ok = c_sglx_connect( self.sglx_handle, SGLX_ADDR.encode(), SGLX_PORT )
+        ok = c_sglx_connect(self.sglx_handle, SGLX_ADDR.encode(), SGLX_PORT)
         if ok:
             print("Connected to SpikeGLX")
         else:
@@ -308,9 +337,9 @@ class Controller:
         Returns:
             dict: Output dictionary with function call details.
         """
-        assert (
-            gas in self.gas_map.values()
-        ), f"requested gas is not available. Must be :{self.gas_map.values()}"
+        assert gas in self.gas_map.values(), (
+            f"requested gas is not available. Must be :{self.gas_map.values()}"
+        )
         # invert the dictionary to use gas to map to the valve
         inv_map = {v: k for k, v in self.gas_map.items()}
 
@@ -368,7 +397,7 @@ class Controller:
         time.sleep(duration)
         self.end_hb(log_enabled=False)
         return ("hering_breuer", "event", {"duration": duration})
-    
+
     @logger
     @interval_timer
     def phasic_stim_HB(
@@ -403,9 +432,9 @@ class Controller:
         assert mode in ["h", "t", "p"], f"Stimulation mode {mode} not supported"
         assert phase in ["e", "i"], f"Stimulation trigger {phase} not supported"
         assert mode == "h", "Only hold mode is implemented for HB stimulations"
-        assert (
-            phase == "i"
-        ), "Only inspiratory holds are implemented for HB stimulations"
+        assert phase == "i", (
+            "Only inspiratory holds are implemented for HB stimulations"
+        )
 
         phase_map = {"e": "exp", "i": "insp"}
         mode_map = {"h": "hold", "t": "train", "p": "pulse"}
@@ -416,14 +445,14 @@ class Controller:
             pulse_duration_sec = None
         if mode == "t":
             assert freq is not None, " frequency is needed for phasic  trains"
-            assert (
-                pulse_duration_sec is not None
-            ), "pulse duration is needed for phasic  trains"
+            assert pulse_duration_sec is not None, (
+                "pulse duration is needed for phasic  trains"
+            )
             pulse_dur_ms = sec2ms(pulse_duration_sec)
         if mode == "p":
-            assert (
-                pulse_duration_sec is not None
-            ), "pulse duration is needed for phasic single pulses"
+            assert pulse_duration_sec is not None, (
+                "pulse duration is needed for phasic single pulses"
+            )
             pulse_dur_ms = sec2ms(pulse_duration_sec)
             freq = None
         if verbose:
@@ -594,7 +623,7 @@ class Controller:
         self.empty_read_buffer()
         for ii in range(n):
             if verbose:
-                print(f"\ttag {pulse_duration_ms}ms stim: {ii+1} of {n}. amp: {amp} ")
+                print(f"\ttag {pulse_duration_ms}ms stim: {ii + 1} of {n}. amp: {amp} ")
             self.run_pulse(pulse_duration_sec, amp, log_enabled=False)
             time.sleep(ipi_sec)
 
@@ -651,14 +680,14 @@ class Controller:
             pulse_duration_sec = None
         if mode == "t":
             assert freq is not None, " frequency is needed for phasic  trains"
-            assert (
-                pulse_duration_sec is not None
-            ), "pulse duration is needed for phasic  trains"
+            assert pulse_duration_sec is not None, (
+                "pulse duration is needed for phasic  trains"
+            )
             pulse_dur_ms = sec2ms(pulse_duration_sec)
         if mode == "p":
-            assert (
-                pulse_duration_sec is not None
-            ), "pulse duration is needed for phasic single pulses"
+            assert pulse_duration_sec is not None, (
+                "pulse duration is needed for phasic single pulses"
+            )
             pulse_dur_ms = sec2ms(pulse_duration_sec)
             freq = None
         if verbose:
@@ -964,7 +993,7 @@ class Controller:
 
     @logger
     @event_timer
-    def start_recording(self,increment_gate=True,silent=True,verbose=True):
+    def start_recording(self, increment_gate=True, silent=True, verbose=True):
         """
         Start a recording using either the spikeglx api or the TTL method.
 
@@ -979,15 +1008,17 @@ class Controller:
                 - category (str): 'event'
                 - params_out (dict): Empty dictionary.
         """
-        if self.record_control=='sglx':
+        if self.record_control == "sglx":
             self.start_recording_sglx(increment_gate=increment_gate)
-        elif self.record_control=='ttl':
+        elif self.record_control == "ttl":
             if increment_gate:
-                print('incrementing gate flag is not valid in TTL mode, ignoring')
+                print("incrementing gate flag is not valid in TTL mode, ignoring")
             self.start_recording_TTL()
         else:
-            raise ValueError('record_control must be sglx or ttl')
-        print("=" * 50 + f"\nStarting recording via {self.record_control}!\n" + "=" * 50) if verbose else None
+            raise ValueError("record_control must be sglx or ttl")
+        print(
+            "=" * 50 + f"\nStarting recording via {self.record_control}!\n" + "=" * 50
+        ) if verbose else None
         self.rec_start_time = time.time()
 
         self.play_alert() if not silent else None
@@ -996,7 +1027,7 @@ class Controller:
 
     @logger
     @event_timer
-    def stop_recording(self,silent=True,reset_to_O2=False,verbose=True):
+    def stop_recording(self, silent=True, reset_to_O2=False, verbose=True):
         """
         Stop a recording using either the spikeglx api or the TTL method.
         Optionally reset the O2.
@@ -1012,14 +1043,16 @@ class Controller:
                 - category (str): 'event'
                 - params_out (dict): Empty dictionary.
         """
-        if self.record_control=='sglx':
+        if self.record_control == "sglx":
             self.stop_recording_sglx()
-        elif self.record_control=='ttl':
+        elif self.record_control == "ttl":
             self.stop_recording_TTL()
         else:
-            raise ValueError('record_control must be sglx or ttl')
-        
-        print("=" * 50 + f"\nStopping recording via {self.record_control}!\n" + "=" * 50) if verbose else None
+            raise ValueError("record_control must be sglx or ttl")
+
+        print(
+            "=" * 50 + f"\nStopping recording via {self.record_control}!\n" + "=" * 50
+        ) if verbose else None
         # Warning - playing alert can disrupt the log timing
         self.play_alert() if not silent else None
 
@@ -1050,7 +1083,7 @@ class Controller:
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("b".encode("utf-8"))
         self.block_until_read()
-    
+
     def check_is_running(self):
         """
         Check if the spikeGLX instance is running.
@@ -1064,11 +1097,13 @@ class Controller:
                 self.connect_to_sglx()
             except:
                 raise ValueError("Could not connect to spikeGLX")
-        ok = c_sglx_isRunning(byref(running),self.sglx_handle)
+        ok = c_sglx_isRunning(byref(running), self.sglx_handle)
         if not running.value:
-            raise ValueError("SpikeGLX is not running. Start a run (i.e. active spikeglx window).")
+            raise ValueError(
+                "SpikeGLX is not running. Start a run (i.e. active spikeglx window)."
+            )
 
-    def start_recording_sglx(self,increment_gate=True):
+    def start_recording_sglx(self, increment_gate=True):
         """
         Start recording using the spikeGLX API
         """
@@ -1080,30 +1115,28 @@ class Controller:
 
         self.check_is_running()
 
-
-
-        self.log=[] # Reset the log.
+        self.log = []  # Reset the log.
         self.get_logname_from_sglx(increment_gate=increment_gate)
 
         # If laser_calibration data exists, save it to the opto_calibration.json in the gate folder
         if self.laser_calibration_data is not None:
-            fn = self.gate_dest.joinpath('opto_calibration.json')
+            fn = self.gate_dest.joinpath("opto_calibration.json")
             if fn.exists():
-                print('Warning: opto_calibration.json already exists. Overwriting.')
-            with open(fn,'w') as f:
-                json.dump(self.laser_calibration_data,f)
+                print("Warning: opto_calibration.json already exists. Overwriting.")
+            with open(fn, "w") as f:
+                json.dump(self.laser_calibration_data, f)
 
         # Enable recording
-        ok = c_sglx_setRecordingEnable(self.sglx_handle,c_bool(True))
+        ok = c_sglx_setRecordingEnable(self.sglx_handle, c_bool(True))
 
-        gates,gate_nums = self.get_gates()
+        gates, gate_nums = self.get_gates()
         n_gates = len(gates)
 
         # Send command to start recording
         if n_gates == 0 or increment_gate:
-            ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1)) 
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(1), c_int(1))
         else:
-            ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1)) 
+            ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(1))
 
     def stop_recording_TTL(self, verbose=True, reset_to_O2=False, silent=True):
         """
@@ -1126,17 +1159,18 @@ class Controller:
         self.serial_port.serialObject.write("r".encode("utf-8"))
         self.serial_port.serialObject.write("e".encode("utf-8"))
         self.block_until_read()
-    
-    def stop_recording_sglx(self,verbose=True):
+
+    def stop_recording_sglx(self, verbose=True):
         """
         Stop recording using the spikeGLX API
         """
-        ok = c_sglx_triggerGT(self.sglx_handle, c_int(-1), c_int(0)) # Do not increment gate number here. Let that happen at recording start
+        ok = c_sglx_triggerGT(
+            self.sglx_handle, c_int(-1), c_int(0)
+        )  # Do not increment gate number here. Let that happen at recording start
 
         #  Set dataDir to the subject directory
         c_root_dir = c_char_p(str(self.root_data_dir).encode())
         ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_root_dir)
-
 
     @logger
     @event_timer
@@ -1428,24 +1462,23 @@ class Controller:
         self.gate_dest.mkdir(exist_ok=True)
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
-
     def get_gates(self):
         """
         Get the number of gates that have already been recorded
         """
         gates = list(self.subject_dir.glob(f"{self.runname}_g*"))
         gate_nums = [int(gate.name.split("_g")[-1]) for gate in gates]
-        return (gates,gate_nums)
+        return (gates, gate_nums)
 
-    def get_logname_from_sglx(self,increment_gate=True):
-        """ 
+    def get_logname_from_sglx(self, increment_gate=True):
+        """
         Use the spikeGLX API to get run, gate, and trigger info
         """
         if self.sglx_handle is None:
             self.connect_to_sglx()
 
         data_dir = self.get_subject_dir()
-        gates,gate_nums = self.get_gates()
+        gates, gate_nums = self.get_gates()
         n_gates = len(gates)
         runname = self.get_runname()
 
@@ -1456,11 +1489,11 @@ class Controller:
             g_suffix = n_gates
             t_suffix = 0
         else:
-            g_suffix = n_gates-1
-            t_suffix = self.get_last_trigger(g_suffix)+1
+            g_suffix = n_gates - 1
+            t_suffix = self.get_last_trigger(g_suffix) + 1
 
         # Get the destination of the gate
-        self.gate_dest = data_dir.joinpath(f'{runname}_g{g_suffix}')
+        self.gate_dest = data_dir.joinpath(f"{runname}_g{g_suffix}")
         self.gate_dest.mkdir(exist_ok=True)
 
         # Set the log filename
@@ -1468,16 +1501,19 @@ class Controller:
             f"_cibbrig_log.table.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.tsv"
         )
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
-    
+
     def get_last_trigger(self, gate_num):
         """
         Get the last trigger that was recorded in a gate
         """
-        gates,gate_nums = self.get_gates()
+        gates, gate_nums = self.get_gates()
         this_gate = gates[gate_nums.index(gate_num)]
         triggers = list(this_gate.rglob(f"*_t*"))
         # Use re to find the strings between "-t" and "."
-        trigger_nums = [int(re.search(r'(?<=_t)\d+(?=\.)',trigger.name).group()) for trigger in triggers]
+        trigger_nums = [
+            int(re.search(r"(?<=_t)\d+(?=\.)", trigger.name).group())
+            for trigger in triggers
+        ]
         trigger_nums = set(trigger_nums)
         last_trigger = max(trigger_nums)
         return last_trigger
@@ -1487,20 +1523,20 @@ class Controller:
         Get the run name from the spikeGLX API
         """
         run = c_char_p()
-        ok = c_sglx_getRunName(byref(run), self.sglx_handle )
+        ok = c_sglx_getRunName(byref(run), self.sglx_handle)
         self.runname = run.value.decode()
         return self.runname
 
     def get_subject_dir(self):
         """
         Get the subject directory from the spikeGLX API where all the gates will be saved
-        If the data directory is not the runname, create a new folder with the runname 
+        If the data directory is not the runname, create a new folder with the runname
         and set the data directory for sglx
         """
 
         # Get the data directory from sglx
         data_dir = c_char_p()
-        ok = c_sglx_getDataDir(byref(data_dir), self.sglx_handle,c_int(0))
+        ok = c_sglx_getDataDir(byref(data_dir), self.sglx_handle, c_int(0))
         data_dir = Path(data_dir.value.decode())
         self.root_data_dir = data_dir
         runname = self.get_runname()
@@ -1511,7 +1547,7 @@ class Controller:
             subject_dir.mkdir(exist_ok=True)
 
             # Set the data directory for sglx
-            c_subject_dir  = c_char_p(str(subject_dir).encode())
+            c_subject_dir = c_char_p(str(subject_dir).encode())
             ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_subject_dir)
         else:
             subject_dir = data_dir
@@ -1519,7 +1555,7 @@ class Controller:
         self.subject_dir = subject_dir
         return self.subject_dir
 
-    def get_laser_amp_from_user(self, multi=False):
+    def get_laser_amp_from_user(self, multi=False, choose_laser_amps=True):
         """
         Prompt the user to input the laser power amplitude using a Qt dialog box.
 
@@ -1530,10 +1566,17 @@ class Controller:
             None
         """
         self.app = QApplication(sys.argv)
-        laser_ui = LaserAmpDialog(multi,calibration_data=self.laser_calibration_data)
+        no_input = not choose_laser_amps
+        if (self.laser_calibration_data is not None) and no_input:
+            print("No input, using previous calibration data")
+            return
+
+        laser_ui = LaserAmpDialog(
+            multi, calibration_data=self.laser_calibration_data, no_input=no_input
+        )
         if laser_ui.exec_() == QDialog.Accepted:
-            self.laser_command_amps = laser_ui.amplitudes
-            self.laser_command_amp = laser_ui.amplitudes[0]
+            if choose_laser_amps:
+                self.laser_command_amps = laser_ui.amplitudes
             self.laser_calibration_data = laser_ui.calibration_data
         # app.exit()
 
@@ -1654,8 +1697,9 @@ class Controller:
 
         return ("present_odor", "odor", {"odor": odor})
 
-    def graceful_close(self):
+    def graceful_close(self, signum, frame):
         self.close(self)
+        sys.exit(0)
 
     def close(self):
         """
@@ -1668,7 +1712,15 @@ class Controller:
         self.save_log()
 
     def preroll(
-        self, use_camera=False, gas="O2", settle_sec=None, set_olfactometer=False,multi_amp=False,increment_gate=True
+        self,
+        use_camera=False,
+        gas="O2",
+        settle_sec=None,
+        set_olfactometer=False,
+        increment_gate=True,
+        multi_amp=False,
+        choose_laser_amps=False,
+        skip_opto_calibration=False,
     ):
         """
         Boilerplate commands to start an experiment.
@@ -1681,20 +1733,38 @@ class Controller:
             gas (str, optional): The gas to send by default. Must be in the gas map: {'O2', 'room air', 'hypercapnia', 'hypoxia', 'N2'}. Defaults to 'O2'.
             settle_sec (float, optional): Settle time in seconds. If None, uses the default settle time for the controller object. Defaults to None.
             set_olfactometer (bool, optional): If True, sets the olfactometer valves. Defaults to False.
-            multi_amp (bool, optional): If True, prompts the user for a list of amplitudes. Defaults to False.
             increment_gate (bool, optional): If True, increment the gate number, passed to start_recording. Defaults to True.
+            multi_amp (bool, optional): If True, prompts the user for a list of amplitudes. Defaults to False. If false, asks user for one amplitude
+            choose_laser_amps (bool, optional): If True, prompts the user for a laser amplitude. Defaults to False. False assumes the user has scripted the desried amplitudes
+            skip_opto_calibration (bool, optional): If True, skips the opto calibration entirely. Defaults to False
         Returns:
             None
         """
+        if skip_opto_calibration and (choose_laser_amps or multi_amp):
+            print(
+                f"Skipping opto calibration, ignoring {choose_laser_amps} and {multi_amp}"
+            )
+            choose_laser_amps = False
+            multi_amp = False
+
+        if multi_amp and not choose_laser_amps:
+            print("Multi amp requires choosing laser amps. Setting multi_amp to False")
+            multi_amp = False
+
         if settle_sec is not None:
             self.settle_time_sec = settle_sec
-        print(f"Default presenting {gas}")
-        if self.record_control=='sglx':
+
+        if self.record_control == "sglx":
             self.check_is_running()
+
+        print(f"Default presenting {gas}")
+        self.present_gas(gas)
 
         # Assumes the first valve is blank
         if set_olfactometer:
-            print('Initializing olfactometer. If the olfactometer is not connected, this will hang')
+            print(
+                "Initializing olfactometer. If the olfactometer is not connected, this will hang"
+            )
             if self.odor_map is None:
                 print(
                     "WARNING! No odor map supplied. Olfactometer only works with supplied valve numbers"
@@ -1704,20 +1774,26 @@ class Controller:
                 self.set_all_olfactometer_valves("10000000")
             else:
                 self.present_odor("blank")
-        self.present_gas(gas)
 
-        if self.record_control=='ttl':
+        if self.record_control == "ttl":
             self.get_logname_from_user()
-        self.get_laser_amp_from_user(multi=multi_amp)
+
+        if not skip_opto_calibration:
+            self.get_laser_amp_from_user(
+                multi=multi_amp, choose_laser_amps=choose_laser_amps
+            )
+
         self.settle()
-        self.start_recording()
+        self.start_recording(increment_gate=increment_gate)
         if use_camera:
             time.sleep(0.5)
             self.start_camera_trig()
 
     @logger
     @event_timer
-    def set_gpio(self, pin, mode, category ='event',pulse_duration_sec=0.1, verbose=True):
+    def set_gpio(
+        self, pin, mode, category="event", pulse_duration_sec=0.1, verbose=True
+    ):
         """
         Set the state of a GPIO pin. (sequential from 0. Letting the teensy firmware deal with mapping the pin here to the actual pin on the teensy)
 
@@ -1755,8 +1831,54 @@ class Controller:
         self.block_until_read()
 
         label = "gpio"
-        params_out = dict(pin=pin, mode=mode,duration=pulse_duration_sec)
+        params_out = dict(pin=pin, mode=mode, duration=pulse_duration_sec)
         return (label, category, params_out)
+
+    def mW_to_volts(self, mW):
+        """
+        Convert a power in mW to a voltage using the calibration data.
+
+        Args:
+            mW (float): Power in mW to convert.
+
+        Returns:
+            float: The power converted to a voltage.
+        """
+        if self.laser_calibration_data is None:
+            print("No calibration data found. Returning None")
+            return None
+        return mW_to_volts(
+            mW,
+            self.laser_calibration_data["light_power"],
+            self.laser_calibration_data["command_voltage"],
+        )
+
+    def volts_to_mW(self, volts):
+        """
+        Convert a voltage to a power in mW using the calibration data.
+
+        Args:
+            volts (float): Voltage to convert.
+
+        Returns:
+            float: The voltage converted to a power in mW.
+        """
+        if self.laser_calibration_data is None:
+            print("No calibration data found. Returning None")
+            return None
+        return volts_to_mW(
+            volts,
+            self.laser_calibration_data["light_power"],
+            self.laser_calibration_data["command_voltage"],
+        )
+
+
+def mW_to_volts(mW, power, command_voltage):
+    return np.interp(mW, power, command_voltage)
+
+
+def volts_to_mW(volts, power, command_voltage):
+    return np.interp(volts, command_voltage, power)
 
 
 def sec2ms(val):
@@ -1787,17 +1909,21 @@ def get_elapsed_time(start_time):
     elapsed_time = curr_time - start_time
     return elapsed_time
 
+
 class LaserAmpDialog(QDialog):
-    def __init__(self, multi=False, calibration_data=None):
+    def __init__(self, multi=False, calibration_data=None, no_input=False):
         super().__init__()
         self.multi = multi
         self.calibration_data = calibration_data
+        self.no_input = no_input
         self.figure = plt.figure()
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.init_ui()
         self.amplitudes = []
         self.amplitude = None
-
+        self.input_mode = (
+            "mW" if calibration_data else "volts"
+        )  # Default to mW if calibration data is provided
+        self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -1809,34 +1935,57 @@ class LaserAmpDialog(QDialog):
         self.calibration_plot_widget = QWidget(self)
         self.calibration_plot_layout.addWidget(self.calibration_plot_widget)
         layout.addLayout(self.calibration_plot_layout)
-        
 
-        self.setWindowTitle('Set Laser Amplitude')
+        self.setWindowTitle("Set Laser Amplitude")
         layout_vals = QHBoxLayout()
         layout.addLayout(layout_vals)
 
-        if self.multi:
-            self.min_label = QLabel('Min Amplitude (0-1):')
-            self.min_input = QLineEdit(self)
-            layout_vals.addWidget(self.min_label)
-            layout_vals.addWidget(self.min_input)
+        if not self.no_input:
+            self.input_mode_toggle = QPushButton(
+                "Switch to Volts Input"
+                if self.input_mode == "mW"
+                else "Switch to mW Input",
+                self,
+            )
+            self.input_mode_toggle.clicked.connect(self.toggle_input_mode)
+            layout.addWidget(self.input_mode_toggle)
 
-            self.max_label = QLabel('Max Amplitude (0-1):')
-            self.max_input = QLineEdit(self)
-            layout_vals.addWidget(self.max_label)
-            layout_vals.addWidget(self.max_input)
+            if self.multi:
+                self.min_label = QLabel(
+                    "Min Amplitude (mW):"
+                    if self.input_mode == "mW"
+                    else "Min Amplitude (0-1):"
+                )
+                self.min_input = QLineEdit(self)
+                layout_vals.addWidget(self.min_label)
+                layout_vals.addWidget(self.min_input)
 
-            self.step_label = QLabel('Step:')
-            self.step_input = QLineEdit(self)
-            layout_vals.addWidget(self.step_label)
-            layout_vals.addWidget(self.step_input)
-        else:
-            self.label = QLabel('Set the laser power (0-1V):')
-            self.input = QLineEdit(self)
-            layout_vals.addWidget(self.label)
-            layout_vals.addWidget(self.input)
+                self.max_label = QLabel(
+                    "Max Amplitude (mW):"
+                    if self.input_mode == "mW"
+                    else "Max Amplitude (0-1):"
+                )
+                self.max_input = QLineEdit(self)
+                layout_vals.addWidget(self.max_label)
+                layout_vals.addWidget(self.max_input)
 
-        self.ok_button = QPushButton('Submit', self)
+                self.step_label = QLabel(
+                    "Step (mW):" if self.input_mode == "mW" else "Step:"
+                )
+                self.step_input = QLineEdit(self)
+                layout_vals.addWidget(self.step_label)
+                layout_vals.addWidget(self.step_input)
+            else:
+                self.label = QLabel(
+                    "Set the laser power (mW):"
+                    if self.input_mode == "mW"
+                    else "Set the laser power (0-1V):"
+                )
+                self.input = QLineEdit(self)
+                layout_vals.addWidget(self.label)
+                layout_vals.addWidget(self.input)
+
+        self.ok_button = QPushButton("Submit", self)
         self.ok_button.clicked.connect(self.on_ok)
         layout.addWidget(self.ok_button)
 
@@ -1844,79 +1993,140 @@ class LaserAmpDialog(QDialog):
         self.setGeometry(100, 100, 800, 600)
         self.plot_calibration_data()
 
+    def toggle_input_mode(self):
+        if self.input_mode == "volts":
+            self.input_mode = "mW"
+            self.input_mode_toggle.setText("Switch to Volts Input")
+            if self.multi:
+                self.min_label.setText("Min Amplitude (mW):")
+                self.max_label.setText("Max Amplitude (mW):")
+                self.step_label.setText("Step (mW):")
+            else:
+                self.label.setText("Set the laser power (mW):")
+        else:
+            self.input_mode = "volts"
+            self.input_mode_toggle.setText("Switch to mW Input")
+            if self.multi:
+                self.min_label.setText("Min Amplitude (0-1):")
+                self.max_label.setText("Max Amplitude (0-1):")
+                self.step_label.setText("Step:")
+            else:
+                self.label.setText("Set the laser power (0-1V):")
+
     def on_ok(self):
-        if self.multi:
-            try:
+        msg = ""
+        try:
+            if self.no_input:
+                self.accept()
+                return
+
+            if self.multi:
                 min_val = float(self.min_input.text())
                 max_val = float(self.max_input.text())
                 step = float(self.step_input.text())
-                if not (0 <= min_val <= 1) or not (0 <= max_val <= 1) or step <= 0:
-                    msg = 'Please enter valid numbers between 0 and 1 for min and max, and a positive number for step.'
-                    raise ValueError
+                if self.input_mode == "volts":
+                    if not (0 <= min_val <= 1) or not (0 <= max_val <= 1) or step <= 0:
+                        msg = "Please enter valid numbers between 0 and 1 for min and max, and a positive number for step."
+                        raise ValueError
 
                 if min_val > max_val:
-                    msg = 'Min amplitude must be less than max amplitude.'
+                    msg = "Min amplitude must be less than max amplitude."
                     raise ValueError
-                
-                if step > max_val - min_val:
-                    msg = 'Step size must be less than the difference between min and max amplitudes.'
-                    raise ValueError
+
+                if step > (max_val - min_val):
+                    QMessageBox.warning(
+                        self, "Step is larger than range", "Setting step to range."
+                    )
+                    step = max_val - min_val
 
                 if min_val == max_val:
-                    self.amplitudes = [min_val]
-                else:
-                    amps = np.round(np.arange(min_val, max_val, step), 2).tolist()
-                    amps = amps + [max_val] if amps[-1] != max_val else amps
-                    self.amplitudes = amps
-                
-                print(f"Voltages set to {self.amplitudes} volts")
-                if self.calibration_data is not None:
-                    mw_amps =  [np.interp(amp, self.calibration_data['command_voltage'], self.calibration_data['light_power']) for amp in self.amplitudes]
-                    print(f"Amplitudes set to {mw_amps} mW")
-                self.accept()
-            except ValueError:
-                QMessageBox.warning(self, 'Invalid Input', msg)
-        else:
-            try:
-                val = float(self.input.text())
-                if not (0 <= val <= 1):
-                    raise ValueError
-                self.amplitudes = [val]
-                print(f"Voltage set to {val}")
-                if self.calibration_data is not None:
-                    mw_amp = np.interp(val, self.calibration_data['command_voltage'], self.calibration_data['light_power'])
-                    print(f"Amplitude set to {mw_amp}")
-                self.accept()
-            except ValueError:
-                QMessageBox.warning(self, 'Invalid Input', 'Please enter a valid number between 0 and 1.')
+                    QMessageBox.warning(
+                        self, "Min and Max are equal", "Setting only one value"
+                    )
+                    min_val = max_val
 
-                
+                if step == 0:
+                    vals = [min_val]
+                else:
+                    vals = np.arange(min_val, max_val + step, step)
+
+                if self.input_mode == "mW":
+                    self.amplitudes = self.mW_to_volts(vals)
+                else:
+                    self.amplitudes = vals
+
+                self.accept()
+            else:
+                val = float(self.input.text())
+                if self.input_mode == "volts" and not (0 <= val <= 1):
+                    msg = "Please enter a valid number between 0 and 1."
+                    raise ValueError
+                if self.input_mode == "mW":
+                    self.amplitudes = self.mW_to_volts([val])
+                else:
+                    self.amplitudes = [val]
+                self.accept()
+        except ValueError:
+            QMessageBox.warning(self, "Invalid Input", msg)
+
     def load_calibration_file(self):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName(self, "Load Calibration File", "", "JSON Files (*.json)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Load Calibration File", "", "JSON Files (*.json)", options=options
+        )
         if file_name:
-            with open(file_name, 'r') as fid:
+            with open(file_name, "r") as fid:
                 self.calibration_data = json.load(fid)
             self.plot_calibration_data()
+            if (not self.no_input) and (self.input_mode == "volts"):
+                self.toggle_input_mode()
 
     def plot_calibration_data(self):
+        colors = {"473nm": "#00b7ff", "635nm": "#ff3900", "undefined": "k"}
         self.figure.clear()
         if self.calibration_data is None:
-            plt.text(0.5, 0.5, 'No calibration data loaded', ha='center', va='center', fontsize=16)
+            plt.text(
+                0.5,
+                0.5,
+                "No calibration data loaded",
+                ha="center",
+                va="center",
+                fontsize=16,
+            )
             plt.xlim(0, 1)
             plt.ylim(0, 10)
         else:
-            volts_supplied = np.array(self.calibration_data['command_voltage'])
-            powers = np.array(self.calibration_data['light_power'])
-            plt.plot(volts_supplied, powers, 'o-')
+            volts_supplied = np.array(self.calibration_data["command_voltage"])
+            powers = np.array(self.calibration_data["light_power"])
+            plt.plot(
+                volts_supplied,
+                powers,
+                "o-",
+                color=colors[self.calibration_data["wavelength"]],
+            )
+            plt.xlim(0.5, np.max(volts_supplied))
+            plt.ylim(-1, np.max(powers))
 
-        plt.xlabel('Command Voltage (V)')
-        plt.ylabel('Light Power (mW)')
-        plt.title('Opto Calibration')
+        plt.xlabel("Command Voltage (V)")
+        plt.ylabel("Light Power (mW)")
+        plt.title("Opto Calibration")
         plt.grid(True)
 
         # Embed the plot in the QWidget
         self.calibration_plot_layout.addWidget(self.canvas)
         self.canvas.draw()
-    
+
+    def mW_to_volts(self, mW):
+        return mW_to_volts(
+            mW,
+            self.calibration_data["light_power"],
+            self.calibration_data["command_voltage"],
+        )
+
+    def volts_to_mW(self, volts):
+        return volts_to_mW(
+            volts,
+            self.calibration_data["light_power"],
+            self.calibration_data["command_voltage"],
+        )
