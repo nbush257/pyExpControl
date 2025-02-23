@@ -1699,6 +1699,7 @@ class Controller:
 
     @logger
     @interval_timer
+    @repeater
     def present_odor(self, odor, duration_sec=None):
         """
         Present an odor by opening the corresponding olfactometer valve.
@@ -1830,6 +1831,7 @@ class Controller:
 
     @logger
     @event_timer
+    @repeater
     def set_gpio(
         self, pin, mode, category="event", pulse_duration_sec=0.1, verbose=True
     ):
