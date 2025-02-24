@@ -33,9 +33,6 @@ Example:
 """
 
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
-# TODO: incorporate spikeglx  run name getting and setting
-# TODO: Get UI to decide if we want to increment the gate
-# TODO: test and clean up the directory sglx directory saving
 import sys
 
 sys.path.append("D:/pyExpControl/ArCOM/Python3")
