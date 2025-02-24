@@ -680,7 +680,6 @@ class Controller:
         mode,
         amp,
         duration_sec,
-        intertrain_interval_sec=30.0,
         freq=None,
         pulse_duration_sec=None,
         verbose=False,
