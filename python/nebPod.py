@@ -50,6 +50,7 @@ import datetime
 import re
 import os
 import sys
+from functools import wraps
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication,
@@ -109,7 +110,7 @@ def interval_timer(func):
     Returns:
         function: The wrapped function with start and stop time appended to its output.
     """
-
+    @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
         label, category, params = func(*args, **kwargs)
@@ -151,7 +152,7 @@ def event_timer(func):
         function: The wrapped function with start time appended to its output.
 
     """
-
+    @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
         label, category, params = func(*args, **kwargs)
@@ -177,7 +178,7 @@ def logger(func):
     Returns:
         function: The wrapped function with logging functionality.
     """
-
+    @wraps(func)
     def wrapper(self, *args, log_enabled=True, **kwargs):
         result = func(self, *args, **kwargs)
         if log_enabled:
@@ -190,6 +191,7 @@ def logger(func):
 def repeater(func):
     """
     Decorator that repeats a function call a specified number of times.
+    This needs to be the top level decorator to work properly.
 
     Args:
         func (function): The function to be decorated.
@@ -197,6 +199,7 @@ def repeater(func):
     Returns:
         function: The wrapped function with repetition functionality.
     """
+    @wraps(func)
     def wrapper(self, *args, n=None, interval=5, **kwargs):
         if n is None:
             func(self, *args, **kwargs)
@@ -204,7 +207,7 @@ def repeater(func):
         
         print('\n')
         print('-'*50)
-        print(f"Repeating {n} times with {interval} second IPI")
+        print(f"Repeating {func.__name__} {n} times with {interval} second IPI")
         print("Parameters:")
         for arg in args:
             print(f"  - {arg}")
@@ -415,9 +418,9 @@ class Controller:
         self.block_until_read()
         return ("start_heringbreuer", "event", {})
 
+    @repeater
     @logger
     @interval_timer
-    @repeater
     def timed_hb(self, duration, verbose=False):
         """
         Start and end a hering breuer stimulation by wrapping to the hering breuer sub-processes
@@ -586,9 +589,9 @@ class Controller:
 
         return (label, "opto", params_out)
 
+    @repeater
     @logger
     @interval_timer
-    @repeater
     def run_train(self, duration_sec, freq, amp, pulse_duration_sec, verbose=False):
         """
         Run a single train of opto pulses.
@@ -671,9 +674,9 @@ class Controller:
         )
         return (label, "opto", params_out)
 
+    @repeater
     @logger
     @interval_timer
-    @repeater
     def phasic_stim(
         self,
         phase,
@@ -1693,9 +1696,9 @@ class Controller:
         self.block_until_read()
         return ("set_all_valves", "odor", {"valve": binary_string})
 
+    @repeater
     @logger
     @interval_timer
-    @repeater
     def present_odor(self, odor, duration_sec=None):
         """
         Present an odor by opening the corresponding olfactometer valve.
@@ -1825,9 +1828,9 @@ class Controller:
             time.sleep(0.5)
             self.start_camera_trig()
 
+    @repeater
     @logger
     @event_timer
-    @repeater
     def set_gpio(
         self, pin, mode, category="event", pulse_duration_sec=0.1, verbose=True
     ):
