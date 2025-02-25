@@ -476,7 +476,7 @@ class ArduinoController(QWidget):
         self.controller.timed_hb(self.hb_time,log_enabled=self.log_enabled)
 
     def run_pulse(self, duration):
-        self.controller.run_pulse(duration,self.laser_amp,log_enabled=self.log_enabled)
+        self.controller.run_pulse(pulse_duration_sec=duration,amp=self.laser_amp,log_enabled=self.log_enabled)
         print(f'Selected pulse duration: {int(1000*duration)}ms, Laser Amplitude: {self.laser_amp:.2f}')
 
     def run_custom_train(self):
@@ -485,26 +485,25 @@ class ArduinoController(QWidget):
             self.viz_custom_train()
             return
         print(f'Running custom train\n\tFreq: {self.train_freq:.2f} (Hz)\n\tPulse duration: {1000*self.train_pulse_dur} (ms)\n\tDuration: {self.train_duration} (s)\n\tLaser Amplitude: {self.laser_amp/100:.2f} (V)')
-        self.controller.run_train(self.train_duration,
-                                  self.train_freq,
-                                  self.laser_amp,
-                                  self.train_pulse_dur,log_enabled=self.log_enabled)
+        self.controller.run_train(duration_sec=self.train_duration,
+                                  freq=self.train_freq,
+                                  amp=self.laser_amp,
+                                  pulse_duration_sec=self.train_pulse_dur,
+                                  log_enabled=self.log_enabled)
 
     def run_insp_phasic(self):
         print('Running inspiratory phasic stim')
-        self.controller.phasic_stim(phase='i',mode='h',n=1,
+        self.controller.phasic_stim(phase='i',mode='h',
                                     amp=self.laser_amp,
                                     duration_sec=self.insp_phasic_duration,
-                                    intertrain_interval_sec=0.,
                                     log_enabled=self.log_enabled
                                     )
         
     def run_insp_phasic_train(self):
         print('Running inspiratory phasic train')
-        self.controller.phasic_stim(phase='i',mode='t',n=1,
+        self.controller.phasic_stim(phase='i',mode='t',
                             amp=self.laser_amp,
                             duration_sec=self.insp_phasic_duration,
-                            intertrain_interval_sec=0.,
                             pulse_duration_sec = self.train_pulse_dur,
                             freq = self.train_freq,
                             log_enabled=self.log_enabled
@@ -512,28 +511,25 @@ class ArduinoController(QWidget):
         
     def run_insp_phasic_single_pulse(self):
         print('running inspiratory phasic single pulse')
-        self.controller.phasic_stim(phase='i',mode='p',n=1,
+        self.controller.phasic_stim(phase='i',mode='p',
                                     amp=self.laser_amp,
                                     duration_sec=self.insp_phasic_duration,
-                                    intertrain_interval_sec=0.,
                                     pulse_duration_sec=self.train_pulse_dur,
                                     log_enabled=self.log_enabled
                                     )
     def run_exp_phasic(self):
         print('Running expiratory phasic stim')
-        self.controller.phasic_stim(phase='e',mode='h',n=1,
+        self.controller.phasic_stim(phase='e',mode='h',
                             amp=self.laser_amp,
                             duration_sec=self.exp_phasic_duration,
-                            intertrain_interval_sec=0.,
                             log_enabled=self.log_enabled
                             )
 
     def run_exp_phasic_train(self):
         print('Running expiratory phasic train')
-        self.controller.phasic_stim(phase='e',mode='t',n=1,
+        self.controller.phasic_stim(phase='e',mode='t',
                             amp=self.laser_amp,
                             duration_sec=self.exp_phasic_duration,
-                            intertrain_interval_sec=0.,
                             pulse_duration_sec = self.train_pulse_dur,
                             freq = self.train_freq,
                             log_enabled=self.log_enabled
@@ -541,10 +537,9 @@ class ArduinoController(QWidget):
         
     def run_exp_phasic_single_pulse(self):
         print('Running expiratory phasic single pulse')
-        self.controller.phasic_stim(phase='e',mode='p',n=1,
+        self.controller.phasic_stim(phase='e',mode='p',
                                     amp=self.laser_amp,
                                     duration_sec=self.exp_phasic_duration,
-                                    intertrain_interval_sec=0.,
                                     pulse_duration_sec=self.train_pulse_dur,
                                     log_enabled=self.log_enabled
                                     )
