@@ -15,9 +15,13 @@ import datetime
 import pandas as pd
 import json
 import sys
-sys.path.append(r'D:/pyExpControl/python')
-sys.path.append(r'D:/pyExpControl/ArCOM/Python3')
-
+# you will have to change these according to your file structure
+# you can use the format
+#sys.path.append(str(    Path(Path(__file__).parent / r"RELATIVEPATHFROMTHISFILE").resolve()    )) 
+#sys.path.append(str(    Path(r"RELATIVEPATHFROMTHERUNNINGDIRECTORYWHICHCALLEDTHISFILE").resolve()    )) 
+#sys.path.append(   r"ABSOLUTEPATH" ) 
+sys.path.append(str(    Path(Path(__file__).parent / r"../../ArCOM/Arduino/src/").resolve()    )) # points to ArCOM.h and ArCOM.cpp libraries
+sys.path.append(str(    Path(Path(__file__).parent / r"../../ArCOM/Python3/").resolve()        )) # points to ArCOM.py module
 from ArCOM import ArCOMObject # Import ArCOMObject
 import nebPod
 try:

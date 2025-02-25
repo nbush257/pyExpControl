@@ -2,10 +2,15 @@
 This is a set of python and arduino code to control the NPX rig using serial communication. 
 It is influenced by the Bpod control from Kepecs and Brody labs and uses the ArCOM package from Sanworks
 
+Everything in the PYTHON folder is run on your local machine, can run in a mamba env, requires the installed dependencies, etc.
+
+Everything in the TEENSY folder is going to be uploaded and run on your microcontroller (platformio recommended to set up your microcontroller)
+The two will communicate with one another 
+
 Installation
 ---
 You will need to include the "cobalt-control" and "Tbox" libraries (.cpp, .h) in your arduino framework so they can be referenced in the firmware sketch.
-
+{You will need to clone the arcom repository discussed below. It's parent folder and the pyexpcontrol parent folder should be in the same directory. Otherwise some paths will break.}
 Install dependencies
 `pip install -r "D:\pyExpControl\python\requirements.txt"`
 or wherever you put the pyExpControl directory

@@ -31,11 +31,20 @@ Example:
         params = dict(param1=param1, param2=param2)
         return (label, category, params)
 """
-
 # TODO: extend and test functionality with thorlabs LED drivers (long term)
 import sys
+from pathlib import Path
+# VARIABLES
+SUBJECT_DIR       = Path(r"D:\sglx_data")
+path2ArCOM_duino  = Path(  Path(__file__).parent / r"../../ArCOM/Arduino/src/"                      ).resolve() # points to ArCOM.h and ArCOM.cpp libraries
+path2ArCOM_python = Path(  Path(__file__).parent / r"../../ArCOM/Python3/"                          ).resolve() # points to ArCOM.py module
+sglx_api_path     = Path(  Path(__file__).parent / r"../../SpikeGLX-CPP-SDK/Windows/Python/sglx_pkg").resolve() # see README for DLL instructions
 
-sys.path.append("D:/pyExpControl/ArCOM/Python3")
+
+# SETUP FOLDER REFERENCES AND IMPORTS
+# you will have to change these paths according to how you setup your folder structure
+sys.path.append(str(    path2ArCOM_duino         )) # points to ArCOM.h and ArCOM.cpp libraries
+sys.path.append(str(    path2ArCOM_python        )) # points to ArCOM.py module
 from ArCOM import ArCOMObject
 import time
 import matplotlib.pyplot as plt
@@ -48,7 +57,7 @@ import re
 import os
 import sys
 from functools import wraps
-from pathlib import Path
+
 from PyQt5.QtWidgets import (
     QApplication,
     QDialog,
@@ -71,12 +80,11 @@ from PyQt5.QtWidgets import QFileDialog
 import json
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
-SUBJECT_DIR = Path(r"D:\sglx_data")
+
 curr_dir = Path(os.getcwd())
 sys.path.append(str(curr_dir))
 sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
 
-sglx_api_path = Path(r"C:\helpers\SpikeGLX-CPP-SDK\Windows\Python\sglx_pkg")
 os.environ["PATH"] = str(sglx_api_path) + os.pathsep + os.environ["PATH"]
 
 sys.path.append(str(sglx_api_path))
