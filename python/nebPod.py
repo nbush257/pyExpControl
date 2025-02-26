@@ -1203,8 +1203,26 @@ class Controller:
         )  # Do not increment gate number here. Let that happen at recording start
 
         #  Set dataDir to the subject directory
-        c_root_dir = c_char_p(str(self.root_data_dir).encode())
-        ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_root_dir)
+        try:
+            c_root_dir = c_char_p(str(self.root_data_dir).encode())
+            ok = c_sglx_setDataDir(self.sglx_handle, c_int(0), c_root_dir)
+        except:
+            print("Could not set data directory")
+
+    def set_all_sglx_low(self):
+        """
+        Disable recording, and set gate and trigger to low
+        """
+        try:
+            print('Disabling spikeglx recording, setting gate and trigger to low')
+            ok = c_sglx_triggerGT(
+                self.sglx_handle, c_int(0), c_int(0)
+            )  # Do not increment gate number here. Let that happen at recording start
+            ok = c_sglx_setRecordingEnable(self.sglx_handle, c_bool(False))
+        except Exception as e:
+            print(f"Error shutting down spikeglx recording {e}")
+
+
 
     @logger
     @event_timer
@@ -1737,11 +1755,13 @@ class Controller:
     #     self.close(self)
     #     sys.exit(0)
 
+
     def close(self):
         """
         Stop the recordings, close the camera trigger, and save the log.
         """
         self.stop_recording()
+        self.set_all_sglx_low()
         print("Shutting down gracefully")
         self.make_log_entry("Killed", "event")
         self.stop_camera_trig()
