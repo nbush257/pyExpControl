@@ -352,6 +352,6 @@ int Cobalt::poll_laser_power(float amp){
 
 int Cobalt::get_thresh(){
   int readin = analogRead(POT_PIN);
-  thresh_val = map(readin,0,8191,4000,5500);
+  thresh_val = map(readin,0,8191,3000,5500);
   return thresh_val;
 }
