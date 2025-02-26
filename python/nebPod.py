@@ -378,7 +378,7 @@ class Controller:
         print(f"Presenting {gas}") if verbose else None
         self.open_valve(inv_map[gas], log_enabled=False)
         if presentation_time is not None:
-            self.wait(presentation_time, msg=f"Presenting {gas}", progress=progress)
+            self.wait(presentation_time, msg=f"Presenting {gas}", progress=progress,cancellable=True)
         return (f"present_{gas}", "gas", {})
 
     @logger
@@ -1382,7 +1382,7 @@ class Controller:
         return output
 
     @interval_timer
-    def wait(self, wait_time_sec, msg=None, progress="bar"):
+    def wait(self, wait_time_sec, msg=None, progress="bar", cancellable=False):
         """
         Pause the experiment for a predetermined amount of time.
 
@@ -1390,35 +1390,70 @@ class Controller:
             wait_time_sec (float): Wait time in seconds.
             msg (str, optional): Custom message to print in the command line. Defaults to None.
             progress (str, optional): Type of progress indicator. Can be 'bar' for a progress bar or any other value for no progress indicator. Defaults to 'bar'.
+            cancellable (bool, optional): Whether to allow cancellation of the wait. Defaults to True.
 
         Returns:
             tuple: A tuple containing:
                 - label (str): 'wait'
                 - category (str): 'event'
-                - params_out (dict): Empty dictionary.
+                - params_out (dict): Dictionary containing wait duration and whether it was cancelled.
         """
-        try:
-            msg = msg or "Waiting"
-            start_time = time.time()
-            update_step = 1
-            if progress == "bar":
-                pbar = tqdm(
-                    total=int(wait_time_sec),
-                    bar_format="{desc} Ctrl-c to skip. |{bar}{r_bar}",
-                )
-                pbar.set_description(msg)
-                while get_elapsed_time(start_time) <= wait_time_sec:
-                    time.sleep(update_step)
-                    pbar.update(update_step)
-                pbar.close()
-            else:
-                time.sleep(wait_time_sec)
-        except KeyboardInterrupt:
-            print('"Wait interrupted!')
-            time.sleep(1)
-            return ("wait", "event", {})
+        msg = msg or "Waiting"
+        start_time = time.time()
+        update_step = 1
+        cancelled = False
 
-        return ("wait", "event", {})
+        if progress == "bar":
+            # Create progress bar with custom format
+            pbar = tqdm(
+                total=int(wait_time_sec),
+                bar_format="{desc} |{bar}{r_bar}",
+            )
+            pbar.set_description(msg)
+
+            if cancellable:
+                # Create cancel button dialog
+                cancel_dialog = QDialog()
+                layout = QVBoxLayout()
+                cancel_button = QPushButton(f"Skip {msg}?")
+                layout.addWidget(cancel_button)
+                cancel_dialog.setLayout(layout)
+                cancel_dialog.setWindowTitle("Wait Control")
+                cancel_dialog.setGeometry(200, 200, 200, 100)
+                cancel_dialog.show()
+
+                def cancel_wait():
+                    nonlocal cancelled
+                    cancelled = True
+                    cancel_dialog.close()
+
+                cancel_button.clicked.connect(cancel_wait)
+
+            while get_elapsed_time(start_time) <= wait_time_sec:
+                if cancelled:
+                    break
+                time.sleep(update_step)
+                pbar.update(update_step)
+                QApplication.processEvents()  # Allow Qt events to be processed
+
+            pbar.close()
+            if cancellable:
+                cancel_dialog.close()
+
+        else:
+            time.sleep(wait_time_sec)
+
+        elapsed = get_elapsed_time(start_time)
+        params = {
+            "duration": wait_time_sec,
+            "elapsed": elapsed,
+            "cancelled": cancelled
+        }
+        
+        if cancelled:
+            print(f"Wait cancelled after {elapsed:.1f} seconds")
+        
+        return ("wait", "event", params)
 
     @interval_timer
     def settle(self, settle_time_sec=None, verbose=True, progress="bar"):
@@ -1443,7 +1478,7 @@ class Controller:
             "MAKE SURE TO: \n\tENABLE THE RECORDING\n\tCHECK YOUR VALVES \n\tENABLE VIDEO \n\tAND PLACE THE OPTOFIBERS, IF REQUIRED"
         )
         self.play_alert()
-        self.wait(settle_time_sec, msg=msg)
+        self.wait(settle_time_sec, msg=msg,cancellable=True)
         print("Done settling") if verbose else None
         return ("probe_settle", "event", {})
 
