@@ -12,6 +12,27 @@ ArCOM olfactometer(Serial3);
 Cobalt cobalt;
 Tbox tbox;
 
+// CPP requires explicit function declarations at the start of each file
+void processCommandS();
+void processCommandC();
+void processCommandO();
+void processCommandH();
+void processCommandR();
+void processCommandV();
+void processCommandP();
+void processCommandT();
+void processCommandA();
+void processCommandM();
+void processCameraCommands();
+void playTone();
+void runTagging();
+void runPhasic();
+void _phasic_HB_insp(uint n, uint dur_active,uint intertrial_interval);
+void runPhasic_HB();
+void setValves(int activeValve);
+void setValves(int activeValve);
+float amp2float(int amp);
+
 const int numValves = 5;  // Number of gas valves to be included in the valve control. These should only have one open at a time
 int valves[numValves] = {0, 1, 2, 3, 4};  // Pins that the valves are on
 const int statusPin = 22;
