@@ -1,5 +1,5 @@
-#ifndef COBALT_H
-#define COBALT_H
+#ifndef DIGITAL_LASER_H
+#define DIGITAL_LASER_H
 
 #include "Arduino.h"
 

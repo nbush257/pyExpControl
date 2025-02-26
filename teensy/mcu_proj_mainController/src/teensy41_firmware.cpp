@@ -13,16 +13,16 @@ Digital_Laser digital_laser;
 Tbox tbox;
 
 // CPP requires explicit function declarations at the start of each file
-void processCommandS();
-void processCommandC();
-void processCommandO();
-void processCommandH();
-void processCommandR();
-void processCommandV();
-void processCommandP();
-void processCommandT();
-void processCommandA();
-void processCommandM();
+// void processCommandS(); // olfactometer
+void processCommandC(); // digital laser TODO consider key replacement
+void processCommandO(); // opto power measure
+// void processCommandH(); // hering breuer
+void processCommandR(); // record control
+// void processCommandV(); // valves
+void processCommandP(); // pulses
+void processCommandT(); // trains
+void processCommandA(); // auxiliary functions
+void processCommandM(); // manual pin set
 void processCameraCommands();
 void playTone();
 void runTagging();
@@ -79,10 +79,11 @@ void loop() {
     char commandType = pyControl.readChar();
 
     // Run the appropriate subcommand
+    // COMMENTED OUT COMMANDS ARE NOT YET IMPLEMENTED IN THE TEENSY 4.1
     switch (commandType) {
-      case 'v':
-        processCommandV(); // valves
-        break;
+      // case 'v':
+      //   processCommandV(); // valves
+      //   break;
       case 'p':
         processCommandP(); // pulses
         break;
@@ -98,18 +99,18 @@ void loop() {
       case 'r':
         processCommandR(); // Record control
         break;
-      case 'h':
-        processCommandH(); // Hering Breuer
-        break;
+      // case 'h':
+      //   processCommandH(); // Hering Breuer
+      //   break;
       case 'o':
         processCommandO(); // opto power measure
         break;
       case 'c': // Digital_Laser
         processCommandC();
         break;
-      case 's': // Olfactometer ([S]mell)
-        processCommandS();
-        break;
+      // case 's': // Olfactometer ([S]mell)
+      //   processCommandS();
+      //   break;
 
       // Add more cases if needed
     }
