@@ -3,10 +3,10 @@
 
 #include "Arduino.h"
 
-class Cobalt
+class Digital_Laser
 {
   public:
-    Cobalt();
+    Digital_Laser();
     void begin();
     void _turn_on(float amp);
     void _turn_off(float amp);

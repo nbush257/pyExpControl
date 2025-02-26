@@ -255,7 +255,7 @@ class Controller:
         self,
         port,
         gas_map=None,
-        cobalt_mode="S",
+        digital_laser_mode="S",
         null_voltage=0.4,
         record_control="sglx",
     ):
@@ -265,8 +265,8 @@ class Controller:
         Args:
             port (str): The serial port for communication (e.g. COM11).
             gas_map (dict, optional): Mapping of teensy pin to gas. Defaults to None.
-            cobalt_mode (str, optional): Mode for cobalt control. Defaults to "S".
-            null_voltage (float, optional): Null voltage for cobalt control. Defaults to 0.4.
+            digital_laser_mode (str, optional): Mode for digital_laser control. Defaults to "S".
+            null_voltage (float, optional): Null voltage for digital_laser control. Defaults to 0.4.
         """
         try:
             self.serial_port = ArCOMObject(
@@ -304,9 +304,9 @@ class Controller:
         self.gate_dest_default = SUBJECT_DIR
         self.log_filename = None
         self.init_time = time.time()
-        if cobalt_mode == "B":
+        if digital_laser_mode == "B":
             null_voltage = 0
-        self.init_cobalt(
+        self.init_digital_laser(
             null_voltage=null_voltage
         )  # Initialize the laser controller object
         self.laser_command_amps = []
@@ -535,16 +535,16 @@ class Controller:
 
         return (label, "event", params_out)
 
-    def init_cobalt(
+    def init_digital_laser(
         self, mode="S", power_meter_pin=16, null_voltage=0.5, verbose=False
     ):
         """
-        Initialize or modify the cobalt object in the Arduino.
+        Initialize or modify the digital_laser object in the Arduino.
 
         This method is particularly useful if you want to switch between sigmoidal and other modes.
 
         Args:
-            mode (str, optional): Mode to set for the cobalt object. Defaults to 'S'. Can be 'S' (sigmoidal) or 'B' (binary).
+            mode (str, optional): Mode to set for the digital_laser object. Defaults to 'S'. Can be 'S' (sigmoidal) or 'B' (binary).
             power_meter_pin (int, optional): Pin number for the power meter. Defaults to 16.
             null_voltage (float, optional): Null voltage value. Defaults to 0.5.
             verbose (bool, optional): Verbosity flag. If True, prints the initialization details. Defaults to False.
@@ -560,7 +560,7 @@ class Controller:
         self.serial_port.write(null_voltage_uint8, "uint8")
         self.block_until_read()
         print(
-            f"initialized cobalt with mode {mode} and power meter pin {power_meter_pin}"
+            f"initialized digital_laser with mode {mode} and power meter pin {power_meter_pin}"
         ) if verbose else None
 
     @repeater
@@ -568,7 +568,7 @@ class Controller:
     @event_timer
     def run_pulse(self, pulse_duration_sec, amp, verbose=False):
         """
-        Run a single opto pulse via the Cobalt teensy controller.
+        Run a single opto pulse via the Digital_Laser teensy controller.
 
         Args:
             pulse_duration_sec (float): Duration of the pulse in seconds.

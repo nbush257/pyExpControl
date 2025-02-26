@@ -1,15 +1,15 @@
-// Requires Cobalt and Tbox modules by NEB. 
-// The cobalt module provides control over an analog out that is sent to a cobalt MLD laser. REQUIRES TEENSY WITH A REAL DAC (3.2, 3.6? NOT 4.x)
+// Requires Digital_Laser and Tbox modules by NEB. 
+// The digital_laser module provides control over an analog out that is sent to a digital_laser MLD laser. REQUIRES TEENSY WITH A REAL DAC (3.2, 3.6? NOT 4.x)
 // The tbox module mostly provides default pin mappings for our experiments. Most of its job was UI over serial, but now that has been put into python. TODO: deprecate the old tbox stuff.
 //Have to hardwire/hardcode the serial ports for lack of better knowledge at this point.
 
 #include <ArCOM.h>
-#include <Cobalt.h>
+#include <Digital_Laser.h>
 #include <Tbox.h>
 ArCOM pyControl(SerialUSB);
 ArCOM cameraPulser(Serial2);
 ArCOM olfactometer(Serial3); 
-Cobalt cobalt;
+Digital_Laser digital_laser;
 Tbox tbox;
 
 // CPP requires explicit function declarations at the start of each file
@@ -64,7 +64,7 @@ void setup() {
   }
   
 
-  cobalt.begin();
+  digital_laser.begin();
   tbox.begin();
   tbox.attachDefaults();
 }
@@ -104,7 +104,7 @@ void loop() {
       case 'o':
         processCommandO(); // opto power measure
         break;
-      case 'c': // Cobalt
+      case 'c': // Digital_Laser
         processCommandC();
         break;
       case 's': // Olfactometer ([S]mell)
@@ -146,16 +146,16 @@ void processCommandS(){
 void processCommandC(){
   char subcommand = pyControl.readChar();
   switch(subcommand){
-    case 'm': //'modify' - modify the cobalt object
+    case 'm': //'modify' - modify the digital_laser object
       char mode = pyControl.readChar();
       
       int power_meter_pin = pyControl.readUint8();    
       int null_voltage_uint8 = pyControl.readUint8();    
       float null_voltage = static_cast<float>(null_voltage_uint8) / 255;
-      cobalt.MODE = mode;
-      cobalt.POWER_METER_PIN = power_meter_pin;
-      cobalt.NULL_VOLTAGE = null_voltage;
-      cobalt.begin();
+      digital_laser.MODE = mode;
+      digital_laser.POWER_METER_PIN = power_meter_pin;
+      digital_laser.NULL_VOLTAGE = null_voltage;
+      digital_laser.begin();
 
 
     break;
@@ -171,16 +171,16 @@ void processCommandO(){ // opto utilities
 
   switch (subcommand){
     case 'p':
-      power = cobalt.poll_laser_power(amp_f);
+      power = digital_laser.poll_laser_power(amp_f);
       pyControl.writeUint16(power);
       break;
     //poll
     case 'o':
-      cobalt._turn_on(amp_f);
+      digital_laser._turn_on(amp_f);
       break;
     // laser on
     case 'x':
-      cobalt._turn_off(amp_f);
+      digital_laser._turn_off(amp_f);
       break;
     //laser off
   }
@@ -201,7 +201,7 @@ void processCommandH() {
 }
 
 // ------------------------------------- //
-// Sub commands that are passed on to the Tbox or Cobalt objects
+// Sub commands that are passed on to the Tbox or Digital_Laser objects
 // ------------------------------------- //
 //Record control
 void processCommandR() {
@@ -230,7 +230,7 @@ void processCommandP() {
   int amp = pyControl.readUint8();
   float amp_f = amp2float(amp);
 
-  cobalt.pulse(amp_f,duration);
+  digital_laser.pulse(amp_f,duration);
 }
 
 //Trains
@@ -240,7 +240,7 @@ void processCommandT() {
   int amp = pyControl.readUint8();
   int pulse_dur = pyControl.readUint8();
   float amp_f = amp2float(amp);
-  cobalt.train(amp_f,float(freq), pulse_dur, duration);
+  digital_laser.train(amp_f,float(freq), pulse_dur, duration);
 }
 
 void processCommandA() {
@@ -314,7 +314,7 @@ void playTone() {
 
 void runTagging() {
   int n = pyControl.readUint8(); // Number of stims
-  cobalt.run_10ms_tagging(n);
+  digital_laser.run_10ms_tagging(n);
 }
 
 
@@ -339,32 +339,32 @@ void runPhasic() {
     case 'e': // Expiratory 
       switch (mode){
         case 'h':
-          cobalt.phasic_stim_exp(n,amp_f,duration,intertrain_interval);
+          digital_laser.phasic_stim_exp(n,amp_f,duration,intertrain_interval);
           break;
         case 'p':
           pulse_dur = pyControl.readUint8();
-          cobalt.phasic_stim_exp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+          digital_laser.phasic_stim_exp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
           break;
         case 't':
           pulse_dur = pyControl.readUint8();
           freq = pyControl.readUint8();
-          cobalt.phasic_stim_exp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+          digital_laser.phasic_stim_exp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
           break;
       }
       break;
     case 'i':
       switch (mode){
         case 'h':
-          cobalt.phasic_stim_insp(n,amp_f,duration,intertrain_interval);
+          digital_laser.phasic_stim_insp(n,amp_f,duration,intertrain_interval);
           break;
         case 'p':
           pulse_dur = pyControl.readUint8();
-          cobalt.phasic_stim_insp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+          digital_laser.phasic_stim_insp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
           break;
         case 't':
           pulse_dur = pyControl.readUint8();
           freq = pyControl.readUint8();
-          cobalt.phasic_stim_insp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+          digital_laser.phasic_stim_insp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
           break;
     }
       break;
@@ -390,16 +390,16 @@ void runPhasic_HB() {
     case 'e':  // Expiratory
       // switch (mode){
       //   case 'h':
-      //     cobalt.phasic_stim_exp(n,amp_f,duration,intertrain_interval);
+      //     digital_laser.phasic_stim_exp(n,amp_f,duration,intertrain_interval);
       //     break;
       //   case 'p':
       //     pulse_dur = pyControl.readUint8();
-      //     cobalt.phasic_stim_exp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+      //     digital_laser.phasic_stim_exp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
       //     break;
       //   case 't':
       //     pulse_dur = pyControl.readUint8();
       //     freq = pyControl.readUint8();
-      //     cobalt.phasic_stim_exp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+      //     digital_laser.phasic_stim_exp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
       //     break;
       // }
       break;
@@ -410,12 +410,12 @@ void runPhasic_HB() {
           break;
           // case 'p':
           //   pulse_dur = pyControl.readUint8();
-          //   cobalt.phasic_stim_insp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+          //   digital_laser.phasic_stim_insp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
           //   break;
           // case 't':
           //   pulse_dur = pyControl.readUint8();
           //   freq = pyControl.readUint8();
-          //   cobalt.phasic_stim_insp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+          //   digital_laser.phasic_stim_insp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
           //   break;
       }
       break;
@@ -429,14 +429,14 @@ void _phasic_HB_insp(uint n, uint dur_active,uint intertrial_interval) {
 
     bool stim_on = false;
     tbox.hering_breuer_stop();
-    int ain_val = analogRead(cobalt.AIN_PIN);
-    int thresh_val = analogRead(cobalt.POT_PIN);
+    int ain_val = analogRead(digital_laser.AIN_PIN);
+    int thresh_val = analogRead(digital_laser.POT_PIN);
     int thresh_down = int(float(thresh_val) * 0.9);
 
     uint t_start = millis();
     while ((millis() - t_start) <= dur_active) {
-      ain_val = analogRead(cobalt.AIN_PIN);
-      thresh_val = analogRead(cobalt.POT_PIN);
+      ain_val = analogRead(digital_laser.AIN_PIN);
+      thresh_val = analogRead(digital_laser.POT_PIN);
       thresh_down = int(float(thresh_val) * 0.9);
       if ((ain_val > thresh_val) & !stim_on) {
         tbox.hering_breuer_start();

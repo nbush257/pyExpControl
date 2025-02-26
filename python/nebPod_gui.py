@@ -58,7 +58,7 @@ class ArduinoController(QWidget):
         self.port = PORT
         self.laser_amp = 0.65
         self.null_voltage = 0.4
-        self.cobalt_mode='S'
+        self.digital_laser_mode='S'
         self.hb_time = 0.5
         self.train_freq = 10.0
         self.train_duration  = 1.0
@@ -76,7 +76,7 @@ class ArduinoController(QWidget):
         self.light_wavelength=self.implemented_wavelengths[0]
         self.log_enabled=False
         self.calibration_data = None
-        self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
+        self.controller.init_digital_laser(mode=self.digital_laser_mode,null_voltage=self.null_voltage)
         self.increment_gate = True
         self.end_hb()
         self.open_valve(0)
@@ -283,7 +283,7 @@ class ArduinoController(QWidget):
         self.null_voltage_linedit.setValidator(QDoubleValidator(0.0, 1.0, 2))
         self.null_voltage_linedit.textChanged.connect(self.update_null_voltage)
 
-        # Change cobalt mode:
+        # Change digital_laser mode:
         mode_label = QLabel('Select laser mode:')
         self.binary_radio = QRadioButton('Binary')
         self.sigmoidal_radio = QRadioButton('Sigmoidal')
@@ -293,8 +293,8 @@ class ArduinoController(QWidget):
         self.button_group = QButtonGroup()
         self.button_group.addButton(self.binary_radio)
         self.button_group.addButton(self.sigmoidal_radio)
-        self.binary_radio.toggled.connect(self.update_cobalt_mode)
-        self.sigmoidal_radio.toggled.connect(self.update_cobalt_mode)
+        self.binary_radio.toggled.connect(self.update_digital_laser_mode)
+        self.sigmoidal_radio.toggled.connect(self.update_digital_laser_mode)
         mode_box = QHBoxLayout()
         mode_box.addWidget(mode_label)
         mode_box.addWidget(self.binary_radio)
@@ -845,17 +845,17 @@ class ArduinoController(QWidget):
     def update_null_voltage(self,value):
         try:
             self.null_voltage = float(value)
-            self.controller.init_cobalt(mode=self.cobalt_mode,
+            self.controller.init_digital_laser(mode=self.digital_laser_mode,
                                         null_voltage=self.null_voltage)
         except:
             pass
     
-    def update_cobalt_mode(self):
+    def update_digital_laser_mode(self):
         sender = self.sender()
         if sender.isChecked():
             print(f'Selected: {sender.text()} mode')
-            self.cobalt_mode = sender.text()[0]
-            self.controller.init_cobalt(mode=self.cobalt_mode,
+            self.digital_laser_mode = sender.text()[0]
+            self.controller.init_digital_laser(mode=self.digital_laser_mode,
                                         null_voltage=self.null_voltage)
         pass
     

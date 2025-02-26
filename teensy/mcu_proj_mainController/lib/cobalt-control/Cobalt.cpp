@@ -1,11 +1,11 @@
-#include "Cobalt.h"
+#include "Digital_Laser.h"
 #include "Arduino.h"
 
-Cobalt::Cobalt(){
+Digital_Laser::Digital_Laser(){
 }
 
 
-void Cobalt::begin() {
+void Digital_Laser::begin() {
   analogWriteResolution(DAC_RESOLUTION); 
   analogReadResolution(13); 
   pinMode(LASER_PIN,OUTPUT);
@@ -17,18 +17,18 @@ void Cobalt::begin() {
 }
 
 
-void Cobalt::_turn_on_binary(float amp){
+void Digital_Laser::_turn_on_binary(float amp){
   // Turn on the light instantaneously at a given amplitude. Scaled between 0 and 1 V
   int digAmp = map(amp,0,1,0,DAC_RANGE/V_REF);
   analogWrite(LASER_PIN,digAmp);
 }
 
-void Cobalt::_turn_off_binary(){
+void Digital_Laser::_turn_off_binary(){
   // Turn off the light instataneously.
   analogWrite(LASER_PIN,0);
 }
 
-void Cobalt::_turn_on_sigm(float amp){
+void Digital_Laser::_turn_on_sigm(float amp){
   // Turn on the light with a sigmoidal ramp Scales the ramp between a base amplitude (which is a voltage just below where the laser is on) to 1v.
   // The amplitude parameter scales maximum ramp.
   
@@ -43,7 +43,7 @@ void Cobalt::_turn_on_sigm(float amp){
   }
 }
 
-void Cobalt::_turn_off_sigm(float amp){
+void Digital_Laser::_turn_off_sigm(float amp){
   float sigmoidalValue;
   float t;
   uint startTime = micros();
@@ -56,7 +56,7 @@ void Cobalt::_turn_off_sigm(float amp){
   analogWrite(LASER_PIN, BASE_VAL);
 }
 
-void Cobalt::_turn_on(float amp){
+void Digital_Laser::_turn_on(float amp){
   // Overload turn on function. Can either be in binary or sigmoidal mode
   switch (MODE){
     case 'B':
@@ -70,7 +70,7 @@ void Cobalt::_turn_on(float amp){
   }
 }
 
-void Cobalt::_turn_off(float amp){
+void Digital_Laser::_turn_off(float amp){
   // Overload turn off function. Can either be in binary or sigmoidal mode
   switch (MODE){
     case 'B':
@@ -84,7 +84,7 @@ void Cobalt::_turn_off(float amp){
   }
 }
 
-void Cobalt::pulse(float amp,uint dur_ms){
+void Digital_Laser::pulse(float amp,uint dur_ms){
   // Run a single pulse with amplitude "amp"
   _turn_on(amp);
   int t_pulse_on = micros();
@@ -92,7 +92,7 @@ void Cobalt::pulse(float amp,uint dur_ms){
   _turn_off(amp);
 }
 
-void Cobalt::train(float amp,float freq_hz,uint dur_pulse,uint dur_train){
+void Digital_Laser::train(float amp,float freq_hz,uint dur_pulse,uint dur_train){
   // Run a sequence of pulses at a given amplitude and frequency
   // Also known as a pulse train
   // freq_hz - frequeny of stimulation
@@ -115,7 +115,7 @@ void Cobalt::train(float amp,float freq_hz,uint dur_pulse,uint dur_train){
   }
 }
 
-void Cobalt::train_duty(float amp,float freq_hz, float duty, uint dur_train){
+void Digital_Laser::train_duty(float amp,float freq_hz, float duty, uint dur_train){
   // Run a sequence of pulses at a given frequency and duty cycle.
   // Also known as a pulse train
   // freq_hz - frequeny of stimulation
@@ -133,7 +133,7 @@ void Cobalt::train_duty(float amp,float freq_hz, float duty, uint dur_train){
   }
 }
 
-void Cobalt::run_10ms_tagging(int n){
+void Digital_Laser::run_10ms_tagging(int n){
   // Run a standard tagging of 10 ms pulses at full amplitude
   //n - number of pulses. Default is 75
   for (int ii=0; ii<n; ii++){
@@ -142,7 +142,7 @@ void Cobalt::run_10ms_tagging(int n){
   }
 }
 
-void Cobalt::run_multiple_pulses(int n, float amp, uint dur_pulse, uint IPI){
+void Digital_Laser::run_multiple_pulses(int n, float amp, uint dur_pulse, uint IPI){
   // Run a sequence of pulses seperated by a fixed interval
   // Equivalent to a train, but easier to program for a lot of single pulses
   for (int ii=0; ii<n; ii++){
@@ -151,7 +151,7 @@ void Cobalt::run_multiple_pulses(int n, float amp, uint dur_pulse, uint IPI){
   }
 }
 
-void Cobalt::run_multiple_trains(int n, float amp, float freq_hz, uint dur_pulse, uint dur_train,uint intertrain_interval){
+void Digital_Laser::run_multiple_trains(int n, float amp, float freq_hz, uint dur_pulse, uint dur_train,uint intertrain_interval){
   for (int ii=0; ii<n; ii++){
     train(amp,freq_hz, dur_pulse, dur_train);
     delay(intertrain_interval);
@@ -159,7 +159,7 @@ void Cobalt::run_multiple_trains(int n, float amp, float freq_hz, uint dur_pulse
 }
 
 
-void Cobalt::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial_interval){
     for (uint ii=0;ii<n;ii++){
 
   bool laser_on=false;
@@ -187,7 +187,7 @@ void Cobalt::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial
 }
 }
 
-void Cobalt::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
+void Digital_Laser::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -212,7 +212,7 @@ void Cobalt::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint inte
 }
 }
 
-void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
   for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -249,7 +249,7 @@ void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_m
 }
 
 
-void Cobalt::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_interval){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -274,7 +274,7 @@ void Cobalt::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_
 }
 }
 
-void Cobalt::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
+void Digital_Laser::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -300,7 +300,7 @@ void Cobalt::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint inter
 }
 }
 
-void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
   for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -337,7 +337,7 @@ void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms
   }
 }
 
-int Cobalt::poll_laser_power(float amp){
+int Digital_Laser::poll_laser_power(float amp){
   _turn_on(amp);
   delay(100);
   uint power_int = 0;
@@ -350,7 +350,7 @@ int Cobalt::poll_laser_power(float amp){
   return average;
 }
 
-int Cobalt::get_thresh(){
+int Digital_Laser::get_thresh(){
   int readin = analogRead(POT_PIN);
   thresh_val = map(readin,0,8191,4000,5500);
   return thresh_val;
