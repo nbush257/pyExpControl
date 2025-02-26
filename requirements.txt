@@ -1,4 +1,4 @@
 matplotlib
 pyqt5
 pandas
-serial
+pyserial
