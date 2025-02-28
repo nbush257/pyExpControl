@@ -536,7 +536,7 @@ class Controller:
         return (label, "event", params_out)
 
     def init_digital_laser(
-        self, mode="S", power_meter_pin=16, null_voltage=0.5, verbose=False
+        self, mode="B", power_meter_pin=16, null_voltage=0.5, verbose=False
     ):
         """
         Initialize or modify the digital_laser object in the Arduino.

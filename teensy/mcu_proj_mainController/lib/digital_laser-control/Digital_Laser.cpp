@@ -6,29 +6,57 @@ Digital_Laser::Digital_Laser(){
 
 
 void Digital_Laser::begin() {
-  analogWriteResolution(DAC_RESOLUTION); 
-  analogReadResolution(13); 
-  pinMode(LASER_PIN,OUTPUT);
-  pinMode(AIN_PIN,INPUT);
-  pinMode(POT_PIN,INPUT);
-  BASE_VAL = map(NULL_VOLTAGE,0,1,0,DAC_RANGE/V_REF);
-  if (MODE =='S'){analogWrite(LASER_PIN,BASE_VAL);}
-  if (MODE =='B'){analogWrite(LASER_PIN,0);}
+  ///////////////////////////////////////////////
+  //// original analog code for posterity ///////
+  ///////////////////////////////////////////////
+  // analogWriteResolution(DAC_RESOLUTION); 
+  // analogReadResolution(13); 
+  // pinMode(LASER_PIN,OUTPUT);
+  // pinMode(AIN_PIN,INPUT);
+  // pinMode(POT_PIN,INPUT);
+  // BASE_VAL = map(NULL_VOLTAGE,0,1,0,DAC_RANGE/V_REF);
+  // if (MODE =='S'){analogWrite(LASER_PIN,BASE_VAL);}
+  // if (MODE =='B'){analogWrite(LASER_PIN,0);}
+
+  ///////////////////////////////////////////
+  //////// new digital PWM code /////////////
+  ///////////////////////////////////////////
+  analogWriteResolution(pwm_resolution);
+  analogWriteFrequency(PWM_PIN, pwm_frequency);
+  pinMode(PWM_PIN, OUTPUT);
+
 }
 
 
-void Digital_Laser::_turn_on_binary(float amp){
+void Digital_Laser::_turn_on_binary(int pwm_level){
+  ///////////////////////////////////////////////
+  //// original analog code for posterity ///////
+  ///////////////////////////////////////////////
+  //////// original code accepts float amp as input
   // Turn on the light instantaneously at a given amplitude. Scaled between 0 and 1 V
-  int digAmp = map(amp,0,1,0,DAC_RANGE/V_REF);
-  analogWrite(LASER_PIN,digAmp);
+  // int digAmp = map(amp,0,1,0,DAC_RANGE/V_REF);
+  // analogWrite(LASER_PIN,digAmp);
+
+  ///////////////////////////////////////////
+  //////// new digital PWM code /////////////
+  ///////////////////////////////////////////
+  analogWrite(PWM_PIN, pwm_level);
 }
 
 void Digital_Laser::_turn_off_binary(){
+  ///////////////////////////////////////////////
+  //// original analog code for posterity ///////
+  ///////////////////////////////////////////////
   // Turn off the light instataneously.
-  analogWrite(LASER_PIN,0);
+  // analogWrite(LASER_PIN,0);
+
+  ///////////////////////////////////////////
+  //////// new digital PWM code /////////////
+  ///////////////////////////////////////////
+  analogWrite(PWM_PIN, 0);
 }
 
-void Digital_Laser::_turn_on_sigm(float amp){
+void Digital_Laser::_turn_on_sigm(int amp){
   // Turn on the light with a sigmoidal ramp Scales the ramp between a base amplitude (which is a voltage just below where the laser is on) to 1v.
   // The amplitude parameter scales maximum ramp.
   
@@ -43,7 +71,7 @@ void Digital_Laser::_turn_on_sigm(float amp){
   }
 }
 
-void Digital_Laser::_turn_off_sigm(float amp){
+void Digital_Laser::_turn_off_sigm(int amp){
   float sigmoidalValue;
   float t;
   uint startTime = micros();
@@ -56,7 +84,7 @@ void Digital_Laser::_turn_off_sigm(float amp){
   analogWrite(LASER_PIN, BASE_VAL);
 }
 
-void Digital_Laser::_turn_on(float amp){
+void Digital_Laser::_turn_on(int amp){
   // Overload turn on function. Can either be in binary or sigmoidal mode
   switch (MODE){
     case 'B':
@@ -70,7 +98,7 @@ void Digital_Laser::_turn_on(float amp){
   }
 }
 
-void Digital_Laser::_turn_off(float amp){
+void Digital_Laser::_turn_off(int amp){
   // Overload turn off function. Can either be in binary or sigmoidal mode
   switch (MODE){
     case 'B':
@@ -84,7 +112,7 @@ void Digital_Laser::_turn_off(float amp){
   }
 }
 
-void Digital_Laser::pulse(float amp,uint dur_ms){
+void Digital_Laser::pulse(int amp,uint dur_ms){
   // Run a single pulse with amplitude "amp"
   _turn_on(amp);
   int t_pulse_on = micros();
@@ -92,7 +120,7 @@ void Digital_Laser::pulse(float amp,uint dur_ms){
   _turn_off(amp);
 }
 
-void Digital_Laser::train(float amp,float freq_hz,uint dur_pulse,uint dur_train){
+void Digital_Laser::train(int amp,float freq_hz,uint dur_pulse,uint dur_train){
   // Run a sequence of pulses at a given amplitude and frequency
   // Also known as a pulse train
   // freq_hz - frequeny of stimulation
@@ -115,7 +143,7 @@ void Digital_Laser::train(float amp,float freq_hz,uint dur_pulse,uint dur_train)
   }
 }
 
-void Digital_Laser::train_duty(float amp,float freq_hz, float duty, uint dur_train){
+void Digital_Laser::train_duty(int amp,float freq_hz, float duty, uint dur_train){
   // Run a sequence of pulses at a given frequency and duty cycle.
   // Also known as a pulse train
   // freq_hz - frequeny of stimulation
@@ -142,7 +170,7 @@ void Digital_Laser::run_10ms_tagging(int n){
   }
 }
 
-void Digital_Laser::run_multiple_pulses(int n, float amp, uint dur_pulse, uint IPI){
+void Digital_Laser::run_multiple_pulses(int n, int amp, uint dur_pulse, uint IPI){
   // Run a sequence of pulses seperated by a fixed interval
   // Equivalent to a train, but easier to program for a lot of single pulses
   for (int ii=0; ii<n; ii++){
@@ -151,7 +179,7 @@ void Digital_Laser::run_multiple_pulses(int n, float amp, uint dur_pulse, uint I
   }
 }
 
-void Digital_Laser::run_multiple_trains(int n, float amp, float freq_hz, uint dur_pulse, uint dur_train,uint intertrain_interval){
+void Digital_Laser::run_multiple_trains(int n, int amp, float freq_hz, uint dur_pulse, uint dur_train,uint intertrain_interval){
   for (int ii=0; ii<n; ii++){
     train(amp,freq_hz, dur_pulse, dur_train);
     delay(intertrain_interval);
@@ -159,7 +187,7 @@ void Digital_Laser::run_multiple_trains(int n, float amp, float freq_hz, uint du
 }
 
 
-void Digital_Laser::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_insp(uint n, int amp, uint dur_active,uint intertrial_interval){
     for (uint ii=0;ii<n;ii++){
 
   bool laser_on=false;
@@ -187,7 +215,7 @@ void Digital_Laser::phasic_stim_insp(uint n, float amp, uint dur_active,uint int
 }
 }
 
-void Digital_Laser::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
+void Digital_Laser::phasic_stim_insp_pulse(uint n, int amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -212,7 +240,7 @@ void Digital_Laser::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,ui
 }
 }
 
-void Digital_Laser::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_insp_train(uint n, int amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
   for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -249,7 +277,7 @@ void Digital_Laser::phasic_stim_insp_train(uint n, float amp, float freq_hz, uin
 }
 
 
-void Digital_Laser::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_exp(uint n, int amp, uint dur_active,uint intertrial_interval){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -274,7 +302,7 @@ void Digital_Laser::phasic_stim_exp(uint n, float amp, uint dur_active,uint inte
 }
 }
 
-void Digital_Laser::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
+void Digital_Laser::phasic_stim_exp_pulse(uint n, int amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -300,7 +328,7 @@ void Digital_Laser::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uin
 }
 }
 
-void Digital_Laser::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
+void Digital_Laser::phasic_stim_exp_train(uint n, int amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
   for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -337,7 +365,7 @@ void Digital_Laser::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint
   }
 }
 
-int Digital_Laser::poll_laser_power(float amp){
+int Digital_Laser::poll_laser_power(int amp){
   _turn_on(amp);
   delay(100);
   uint power_int = 0;

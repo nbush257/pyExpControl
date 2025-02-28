@@ -56,9 +56,9 @@ class ArduinoController(QWidget):
             self.IS_CONNECTED = False
             print(f"No Serial port found on {PORT}. GUI will show up but not do anything")
         self.port = PORT
-        self.laser_amp = 0.65
+        self.laser_amp = 8 # bits, out of 16, to set duty cycle for PWM
         self.null_voltage = 0.4
-        self.digital_laser_mode='S'
+        self.digital_laser_mode='B'
         self.hb_time = 0.5
         self.train_freq = 10.0
         self.train_duration  = 1.0
@@ -90,7 +90,8 @@ class ArduinoController(QWidget):
         main_layout = QGridLayout(self)
         main_layout.setAlignment(Qt.AlignTop)
 
-
+#######################################################################
+#######################################################################
         # Create a box for recording controls
         record_layout = QHBoxLayout()
         self.record_button = QPushButton('Start Recording', self)
@@ -105,7 +106,8 @@ class ArduinoController(QWidget):
         record_layout.addWidget(self.increment_gate_checkbox)
 
         main_layout.addLayout(record_layout, 0, 0)
-
+#######################################################################
+#######################################################################
         # Create script input field and button
         script_dialog = QVBoxLayout()
         self.script_path_input = QLineEdit(self)
@@ -120,7 +122,8 @@ class ArduinoController(QWidget):
         script_dialog.addWidget(self.script_run_button)
 
         main_layout.addLayout(script_dialog, 0, 1)
-
+#######################################################################
+#######################################################################
         # Create box for connecting:
         connect_box = QGridLayout()
         port_label = QLabel('COM Port:')
@@ -139,7 +142,8 @@ class ArduinoController(QWidget):
         main_layout.addLayout(connect_box, 0, 2)
 
 
-
+#######################################################################
+#######################################################################
         # Create group box for toggle buttons (Valves)
         group_box_toggle = QGroupBox("Manual Valve Control", self)
         toggle_layout = QGridLayout(group_box_toggle)
@@ -158,7 +162,8 @@ class ArduinoController(QWidget):
                 toggle_button.clicked.connect(lambda state, button_number=button_index: self.open_valve(button_number))
                 toggle_layout.addWidget(toggle_button, row, col)
                 button_index += 1
-
+#######################################################################
+#######################################################################
         # Create Hering breuer group
         hb_group = QGroupBox("Hering breuer", self)
         hb_lo = QGridLayout(hb_group)
@@ -184,7 +189,8 @@ class ArduinoController(QWidget):
 
         main_layout.addWidget(group_box_toggle, 1, 0)
         main_layout.addWidget(hb_group, 2, 0)
-
+#######################################################################
+#######################################################################
         # Create group box for pulse duration buttons (Pulses)
         group_box_pulse = QGroupBox("Predefined pulses", self)
         pulse_layout = QGridLayout(group_box_pulse)
@@ -222,7 +228,8 @@ class ArduinoController(QWidget):
         pulse_layout.addWidget(hold_on_laser, 3, 0,1,3)
 
         main_layout.addWidget(group_box_pulse, 2, 1)
-
+#######################################################################
+#######################################################################
         # Custom pulses
         group_box_stim_params = QGroupBox("Custom pulse train", self)
         stim_params_layout = QGridLayout(group_box_stim_params)
@@ -247,15 +254,15 @@ class ArduinoController(QWidget):
         self.pulse_dur_lineedit.setValidator(QIntValidator(0, 1000))
         self.pulse_dur_lineedit.textChanged.connect(self.update_train_pulse_dur)
         # Laser amplitude
-        amp_label_text = QLabel('Laser Amp (0-1v):')
+        amp_label_text = QLabel('PWM duty cycle, int 0-15 out of 16')
         self.laser_amp_lineedit = QLineEdit()
-        self.laser_amp_lineedit.setText(f'{self.laser_amp:.2f}')
-        self.laser_amp_lineedit.setValidator(QDoubleValidator(0.0, 1.0, 2))
+        self.laser_amp_lineedit.setText(f'{self.laser_amp:.0f}')
+        self.laser_amp_lineedit.setValidator(QIntValidator(0, 15))
         self.laser_amp_lineedit.textChanged.connect(self.update_laser_amplitude_from_lineedit)
-        self.laser_amp_dial = QDial()
-        self.laser_amp_dial.setRange(0, 100)
-        self.laser_amp_dial.setValue(int(self.laser_amp * 100))
-        self.laser_amp_dial.valueChanged.connect(self.update_laser_amplitude_from_dial)
+        # self.laser_amp_dial = QDial()
+        # self.laser_amp_dial.setRange(0, 100)
+        # self.laser_amp_dial.setValue(int(self.laser_amp * 100))
+        # self.laser_amp_dial.valueChanged.connect(self.update_laser_amplitude_from_dial)
 
         # Run train button
         train_button = QPushButton('Run custom train', self)
@@ -286,8 +293,9 @@ class ArduinoController(QWidget):
         # Change digital_laser mode:
         mode_label = QLabel('Select laser mode:')
         self.binary_radio = QRadioButton('Binary')
+        self.binary_radio.setChecked(True)
         self.sigmoidal_radio = QRadioButton('Sigmoidal')
-        self.sigmoidal_radio.setChecked(True)
+        
 
         # Create a button group to make the radio buttons mutually exclusive
         self.button_group = QButtonGroup()
@@ -299,7 +307,15 @@ class ArduinoController(QWidget):
         mode_box.addWidget(mode_label)
         mode_box.addWidget(self.binary_radio)
         mode_box.addWidget(self.sigmoidal_radio)
+#######################################################################
+#######################################################################
+        ## make a box for digital / PWM laser controls
+        ## Custom pulses
 
+
+
+#######################################################################
+#######################################################################
         # Calibration plot
         max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
         self.max_milliwatt_lineedit = QLineEdit()
@@ -356,7 +372,7 @@ class ArduinoController(QWidget):
         stim_params_layout.addWidget(self.pulse_dur_lineedit, 3, 1)
         stim_params_layout.addWidget(self.laser_amp_lineedit, 4, 1)
 
-        stim_params_layout.addWidget(self.laser_amp_dial, 4, 2, 2, 2)
+        # stim_params_layout.addWidget(self.laser_amp_dial, 4, 2, 2, 2)
 
         stim_params_layout.addWidget(train_button, 5, 0)
         stim_params_layout.addWidget(viz_train_button, 5, 1)
@@ -492,7 +508,7 @@ class ArduinoController(QWidget):
 
     def run_pulse(self, duration):
         self.controller.run_pulse(pulse_duration_sec=duration,amp=self.laser_amp,log_enabled=self.log_enabled)
-        print(f'Selected pulse duration: {int(1000*duration)}ms, Laser Amplitude: {self.laser_amp:.2f}')
+        print(f'Selected pulse duration: {int(1000*duration)}ms, Laser Amplitude: {self.laser_amp:.0f}')
 
     def run_custom_train(self):
         if 1000/self.train_freq <= self.train_pulse_dur*1000:
@@ -677,7 +693,7 @@ class ArduinoController(QWidget):
         t = t[idx]
         y = y[idx]
         t = np.hstack([[-self.train_duration*1000/2],t,[self.train_duration*1000*3/2]])
-        y = np.hstack([[0],y,[0]]) * self.laser_amp
+        y = np.hstack([[0],y,[0]]) * float(self.laser_amp)
 
         f = plt.figure(figsize=(8,3))
         plt.step(t,y,'k',where='post')
@@ -696,21 +712,21 @@ class ArduinoController(QWidget):
         
     def update_laser_amplitude_from_lineedit(self, value):
         try:
-            self.laser_amp = float(value)
+            self.laser_amp = int(value)
         except:
             pass
-        self.update_laseramp_dial_value()
+        # self.update_laseramp_dial_value()
 
-    def update_laser_amplitude_from_dial(self, value):
-        self.laser_amp = float(value)/100. 
-        self.update_laseramp_lineedit_text()
-        self.print_laser_amplitude()
+    # def update_laser_amplitude_from_dial(self, value):
+    #     self.laser_amp = float(value)/100. 
+    #     self.update_laseramp_lineedit_text()
+    #     self.print_laser_amplitude()
 
-    def update_laseramp_dial_value(self):
-        self.laser_amp_dial.setValue(int(self.laser_amp*100))
+    # def update_laseramp_dial_value(self):
+    #     self.laser_amp_dial.setValue(int(self.laser_amp*100))
 
     def update_laseramp_lineedit_text(self):
-        self.laser_amp_lineedit.setText(f'{self.laser_amp:.2f}')
+        self.laser_amp_lineedit.setText(f'{self.laser_amp:.0f}')
 
     def calibrate_laser(self):
         calib_vals = np.arange(0.5,1.01,0.025)
@@ -840,7 +856,7 @@ class ArduinoController(QWidget):
         self.controller.turn_off_laser(self.laser_amp)
 
     def print_laser_amplitude(self):
-        print(f'Laser amplitude set to: {self.laser_amp:.2f}v')
+        print(f'Laser amplitude set to: {self.laser_amp:.0f}')
 
     def update_null_voltage(self,value):
         try:
