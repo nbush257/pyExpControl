@@ -203,18 +203,18 @@ def repeater(func):
             func(self, *args, **kwargs)
             return
         
-        print('\n')
-        print('-'*50)
-        print(f"Repeating {func.__name__} {n} times with {interval} second IPI")
-        print("Parameters:")
+        msg = f"\nRepeating {func.__name__} {n} times with {interval} second interval\nParameters:\n"
         for arg in args:
-            print(f"  - {arg}")
+            msg += f"  - {arg}\n"
         for key, value in kwargs.items():
-            print(f"  - {key}: {value}")
+            msg += f"  - {key}: {value}\n"
+        print(msg)
 
         for ii in range(n):
+            close_on_finish = True if ii == n-1 else False
+            rep_msg = msg + f"\nRepetition {ii+1} of {n}"
             func(self, *args, **kwargs)
-            self.wait(interval, msg=f"Repetition {ii+1} of {n}")
+            self.wait(interval, msg=rep_msg, progress="gui",close_on_finish=close_on_finish)
 
     return wrapper
 class Controller:
@@ -1386,7 +1386,7 @@ class Controller:
         return output
 
     @interval_timer
-    def wait(self, wait_time_sec, msg=None, progress="bar"):
+    def wait(self, wait_time_sec, msg=None, progress="bar",close_on_finish = True):
         """
         Pause the experiment for a predetermined amount of time.
 
@@ -1394,7 +1394,7 @@ class Controller:
             wait_time_sec (float): Wait time in seconds.
             msg (str, optional): Custom message to print in the command line. Defaults to None.
             progress (str, optional): Type of progress indicator. Can be 'bar' for a progress bar or any other value for no progress indicator. Defaults to 'bar'.
-
+            close_on_finish (bool, optional): If True, close the dialog when the wait is finished. Defaults to True.
         Returns:
             tuple: A tuple containing:
                 - label (str): 'wait'
@@ -1420,7 +1420,7 @@ class Controller:
 
             pbar.close()
         elif progress == "gui":
-            dialog = WaitDialog(wait_time_sec, msg)
+            dialog = WaitDialog(wait_time_sec, msg, close_on_finish=close_on_finish)
             completed = dialog.wait()
             cancelled = not completed
 

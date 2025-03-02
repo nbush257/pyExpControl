@@ -91,11 +91,12 @@ class UserDelay(QDialog):
         continue_button.clicked.connect(self.close)
 
 class WaitDialog(QDialog):
-    def __init__(self, wait_time_sec, msg=None):
+    def __init__(self, wait_time_sec, msg=None, close_on_finish=True):
         super().__init__()
         self.wait_time_sec = int(wait_time_sec)
         self.msg = msg or "Waiting"
         self.cancelled = False
+        self.close_on_finish = close_on_finish
         self.initUI()
         
     def initUI(self):
@@ -104,7 +105,7 @@ class WaitDialog(QDialog):
         # Message label
         self.label = QLabel(self.msg)
         self.label.setStyleSheet("font-size: 18px;")
-        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setAlignment(Qt.AlignLeft)
         layout.addWidget(self.label)
         
         # Progress bar
@@ -125,7 +126,8 @@ class WaitDialog(QDialog):
         
     def cancel_wait(self):
         self.cancelled = True
-        self.close()
+        if self.close_on_finish:
+            self.close()
         
     def wait(self):
         """Execute the wait operation. Returns True if completed, False if cancelled."""
@@ -139,7 +141,6 @@ class WaitDialog(QDialog):
             progress = int(((time.time() - t_start) / self.wait_time_sec) * 100)
             self.progress_bar.setValue(progress)
             # Update remaining time in label
-            # Format remaining time as mm:ss if greater than 1 minute
             minutes = int(remaining // 60)
             seconds = int(remaining % 60)
             if minutes > 0:
@@ -150,6 +151,10 @@ class WaitDialog(QDialog):
             QApplication.processEvents()
             time.sleep(0.1)
             
-        self.close()
+        if self.close_on_finish:
+            self.close()
+        else:
+            self.label.setText(f"{self.msg}\nCompleted!")
+            self.progress_bar.setValue(100)
+            
         return True
-
