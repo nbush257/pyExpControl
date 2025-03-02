@@ -59,6 +59,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QMessageBox,
 )
+from gui import UserDelay, WaitDialog
 
 # Import qwidget
 from PyQt5.QtWidgets import QWidget
@@ -274,6 +275,9 @@ class Controller:
 
         # If an uncaught error occurs, close the controller
         sys.excepthook = self.handle_exception
+        
+        # Initialize the GUI
+        self.app = QApplication(sys.argv)
 
         # Set the gas map if supplied. This maps the teensy pin to the gas
         self.gas_map = gas_map or {
@@ -355,7 +359,7 @@ class Controller:
 
     @logger
     @event_timer
-    def present_gas(self, gas, presentation_time=None, verbose=False, progress="bar"):
+    def present_gas(self, gas, presentation_time=None, verbose=False, progress="gui"):
         """
         Blocking wrapper to open_valve that takes a gas name as input,
         and then sleeps the function for the presentation time.
@@ -378,7 +382,7 @@ class Controller:
         print(f"Presenting {gas}") if verbose else None
         self.open_valve(inv_map[gas], log_enabled=False)
         if presentation_time is not None:
-            self.wait(presentation_time, msg=f"Presenting {gas}", progress=progress,cancellable=True)
+            self.wait(presentation_time, msg=f"Presenting {gas}", progress=progress)
         return (f"present_{gas}", "gas", {})
 
     @logger
@@ -1382,7 +1386,7 @@ class Controller:
         return output
 
     @interval_timer
-    def wait(self, wait_time_sec, msg=None, progress="bar", cancellable=False):
+    def wait(self, wait_time_sec, msg=None, progress="bar"):
         """
         Pause the experiment for a predetermined amount of time.
 
@@ -1390,7 +1394,6 @@ class Controller:
             wait_time_sec (float): Wait time in seconds.
             msg (str, optional): Custom message to print in the command line. Defaults to None.
             progress (str, optional): Type of progress indicator. Can be 'bar' for a progress bar or any other value for no progress indicator. Defaults to 'bar'.
-            cancellable (bool, optional): Whether to allow cancellation of the wait. Defaults to True.
 
         Returns:
             tuple: A tuple containing:
@@ -1411,34 +1414,15 @@ class Controller:
             )
             pbar.set_description(msg)
 
-            if cancellable:
-                # Create cancel button dialog
-                cancel_dialog = QDialog()
-                layout = QVBoxLayout()
-                cancel_button = QPushButton(f"Skip {msg}?")
-                layout.addWidget(cancel_button)
-                cancel_dialog.setLayout(layout)
-                cancel_dialog.setWindowTitle("Wait Control")
-                cancel_dialog.setGeometry(200, 200, 200, 100)
-                cancel_dialog.show()
-
-                def cancel_wait():
-                    nonlocal cancelled
-                    cancelled = True
-                    cancel_dialog.close()
-
-                cancel_button.clicked.connect(cancel_wait)
-
             while get_elapsed_time(start_time) <= wait_time_sec:
-                if cancelled:
-                    break
                 time.sleep(update_step)
                 pbar.update(update_step)
-                QApplication.processEvents()  # Allow Qt events to be processed
 
             pbar.close()
-            if cancellable:
-                cancel_dialog.close()
+        elif progress == "gui":
+            dialog = WaitDialog(wait_time_sec, msg)
+            completed = dialog.wait()
+            cancelled = not completed
 
         else:
             time.sleep(wait_time_sec)
@@ -1447,7 +1431,6 @@ class Controller:
         params = {
             "duration": wait_time_sec,
             "elapsed": elapsed,
-            "cancelled": cancelled
         }
         
         if cancelled:
@@ -1456,7 +1439,7 @@ class Controller:
         return ("wait", "event", params)
 
     @interval_timer
-    def settle(self, settle_time_sec=None, verbose=True, progress="bar"):
+    def settle(self, settle_time_sec=None, verbose=True, progress="gui"):
         """
         Convenience function to wait for the settle time, which can be passed or set as an object property.
 
@@ -1478,7 +1461,7 @@ class Controller:
             "MAKE SURE TO: \n\tENABLE THE RECORDING\n\tCHECK YOUR VALVES \n\tENABLE VIDEO \n\tAND PLACE THE OPTOFIBERS, IF REQUIRED"
         )
         self.play_alert()
-        self.wait(settle_time_sec, msg=msg,cancellable=True)
+        self.wait(settle_time_sec, msg=msg,progress=progress)
         print("Done settling") if verbose else None
         return ("probe_settle", "event", {})
 
@@ -1652,7 +1635,6 @@ class Controller:
         Returns:
             None
         """
-        self.app = QApplication(sys.argv)
         no_input = not choose_laser_amps
         if (self.laser_calibration_data is not None) and no_input:
             print("No input, using previous calibration data")
@@ -1789,6 +1771,21 @@ class Controller:
     #     print("Keyboard interrupt detected")
     #     self.close(self)
     #     sys.exit(0)
+
+    @logger
+    @interval_timer
+    def user_delay(self,prompt):
+        """
+        Present the user with a QT window with the prompt message.
+        continue when the user presses the "continue" button.
+
+        Args:
+            prompt (str): The message to display in the QT window.
+        """
+        ui = UserDelay(prompt)
+        ui.exec_()
+        return ("user_delay", "event", {'prompt':prompt})
+
 
 
     def close(self):
