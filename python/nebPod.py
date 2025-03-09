@@ -1625,7 +1625,7 @@ class Controller:
         self.subject_dir = subject_dir
         return self.subject_dir
 
-    def get_laser_amp_from_user(self, multi=False, choose_laser_amps=True):
+    def get_laser_amp_from_user(self, multi=False, choose_laser_amps=False):
         """
         Prompt the user to input the laser power amplitude using a Qt dialog box.
 
