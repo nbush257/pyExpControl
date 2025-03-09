@@ -111,14 +111,14 @@ class ArduinoController(QWidget):
         port_label = QLabel('COM Port:')
         port_lineedit = QLineEdit(self)
         port_lineedit.setPlaceholderText(PORT)
-        port_connect_button = QPushButton('Connect COM')
-        port_connect_button.clicked.connect(self.connect)
+        self.port_connect_button = QPushButton('Connect COM')
+        self.port_connect_button.clicked.connect(self.connect)
 
         port_disconnect_button = QPushButton('Disconnect COM')
         port_disconnect_button.clicked.connect(self.disconnect)
         connect_box.addWidget(port_label, 0, 0)
         connect_box.addWidget(port_lineedit, 0, 1)
-        connect_box.addWidget(port_connect_button, 1, 0, 1, 2)
+        connect_box.addWidget(self.port_connect_button, 1, 0, 1, 2)
         connect_box.addWidget(port_disconnect_button, 2, 0, 1, 2)
 
         main_layout.addLayout(connect_box, 0, 2)
@@ -442,7 +442,8 @@ class ArduinoController(QWidget):
         # Set up the main window
         self.setLayout(main_layout)
         self.setGeometry(100, 100, 800, 500)
-        self.setWindowTitle("Nick's Fancy Experiment Controller (gooey)")
+        self.default_title = "Nick's Fancy Experiment Controller (gooey)"
+        self.setWindowTitle(self.default_title)
         self.show()
         self.plot_calibration_data()
     
@@ -451,14 +452,21 @@ class ArduinoController(QWidget):
         if not self.IS_CONNECTED:
             self.controller = nebPod.Controller(self.port)
             self.IS_CONNECTED=True
+            self.setStyleSheet('')
+            self.setWindowTitle(self.default_title)
+            self.port_connect_button.setStyleSheet('')
+
         else:
             print('Already connected')
     
     def disconnect(self):
         if self.IS_CONNECTED:
+            self.setStyleSheet('background-color: #AA1111')
             self.controller.serial_port.close()
+            self.port_connect_button.setStyleSheet('background-color: #FFFFFF; font-weight: bold;font-size: 16px')
             self.IS_CONNECTED=False
             print('Disconnected! Warning, GUI will crash if try to use')
+            self.setWindowTitle(self.default_title + " (DISCONNECTED)")
         else:
             print('Not connected to any COM port')
 
@@ -625,13 +633,12 @@ class ArduinoController(QWidget):
             return None
         print(f'Running script {self.script_filename}')
         command = ['python',str(self.script_filename)]
-        self.script_run_button.setStyleSheet('background-color: #111111')
-        self.setStyleSheet('background-color: #AA1111')
-        print('Closing serial port')
-        self.controller.serial_port.close()
-        self.IS_CONNECTED = False
+        self.disconnect()
+
         QApplication.processEvents()
-        subprocess.Popen(' '.join(command))
+        # subprocess.Popen(' '.join(command))
+        subprocess.Popen(['start', 'cmd', '/k', 'python',str(self.script_filename)], shell=True)
+
         QApplication.processEvents()
 
     def update_train_freq(self,value):
@@ -834,7 +841,7 @@ class ArduinoController(QWidget):
 
     def laser_secondary_off(self):
         self.controller.set_gpio(0,'low')
-        
+
     def print_laser_amplitude(self):
         print(f'Laser amplitude set to: {self.laser_amp:.2f}v')
 
