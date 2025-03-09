@@ -1923,6 +1923,28 @@ class Controller:
         params_out = dict(pin=pin, mode=mode, duration=pulse_duration_sec)
         return (label, category, params_out)
 
+    @repeater
+    @logger
+    @event_timer
+    def laser_pulse_gpio(self, pin=0, pulse_duration_sec=0.01, verbose=True):
+        """
+        Pulse a GPIO pin to trigger the laser. Wrapper to set_gpio with different logging
+
+        Args:
+            pin (int): The GPIO pin number to pulse.
+            pulse_duration_sec (float, optional): Duration of the pulse in seconds. Defaults to 0.1.
+            verbose (bool, optional): Verbosity flag. If True, prints the pin number and duration. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing:
+                - label (str): 'opto_pulse'
+                - category (str): 'opto'
+                - params_out (dict): Dictionary with 'pin' and 'duration'.
+        """
+        self.set_gpio(pin, "pulse", pulse_duration_sec=pulse_duration_sec, verbose=verbose,log_enabled=False)
+        return ("opto_pulse", "opto", {"pin": pin, "duration": pulse_duration_sec})
+        
+    
     def mW_to_volts(self, mW):
         """
         Convert a power in mW to a voltage using the calibration data.
