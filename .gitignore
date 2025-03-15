@@ -4,3 +4,4 @@
 !python/scripts/test_script.py
 *.tsv
 *.bat
+*.json
