@@ -13,7 +13,7 @@ import numpy as np
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton
 from PyQt5.QtCore import Qt
 
-AVAILABLE_ODORS = ['H20','Not Connected','octanal','nh3','vanilla','bedding']
+AVAILABLE_ODORS = ['Not Connected','H20','octanal','nh3','vanilla','bedding']
 
 def mW_to_volts(mW, power, command_voltage):
     return np.interp(mW, power, command_voltage)
@@ -109,7 +109,7 @@ class UserDelay(QDialog):
 class WaitDialog(QDialog):
     def __init__(self, wait_time_sec, msg=None, close_on_finish=True):
         super().__init__()
-        self.wait_time_sec = int(wait_time_sec)
+        self.wait_time_sec = wait_time_sec
         self.msg = msg or "Waiting"
         self.cancelled = False
         self.close_on_finish = close_on_finish
@@ -398,12 +398,15 @@ class LaserAmpDialog(QDialog):
         )
 
 class OdorMapDialog(QDialog):
-    def __init__(self, available_odors=None, parent=None):
+    def __init__(self, available_odors=None, odor_map = None,parent=None):
         super().__init__(parent)
         if available_odors is None:
             available_odors = AVAILABLE_ODORS
         self.available_odors = available_odors
-        self.odor_map = {}
+        if odor_map is not None:
+            self.odor_map = odor_map
+        else:
+            self.odor_map = {}
         self.init_ui()
 
     def init_ui(self):
@@ -418,9 +421,11 @@ class OdorMapDialog(QDialog):
             combo = QComboBox(self)
             combo.addItems(self.available_odors)
             if i==0:
-                combo.setCurrentText('H20')  # Set default odor to 'H20'
+                this_odor = self.odor_map.get(i, 'H20')
             else:
-                combo.setCurrentText('Not Connected')  # Set default odor to 'Not Connected'
+                this_odor = self.odor_map.get(i, 'Not Connected')
+
+            combo.setCurrentText(this_odor)  # Set default odor to 'Not Connected'
             self.combo_boxes[i] = combo
             h_layout.addWidget(label)
             h_layout.addWidget(combo)

@@ -51,6 +51,7 @@ class ArduinoController(QWidget):
         self.gas_map = self.controller.gas_map
         self.insp_phasic_duration = 10.0
         self.exp_phasic_duration = 4.0
+        self.odor_presentation_duration = 5.0
         self.save_path = Path('D:/')
         self.controller.gate_dest = self.save_path
         self.script_filename = None
@@ -216,7 +217,7 @@ class ArduinoController(QWidget):
         pulse_layout.addWidget(hold_on_laser, 3, 0,1,3)
         pulse_layout.addWidget(hold_on_laser_secondary, 4, 0,1,3)
 
-        main_layout.addWidget(group_box_pulse, 2, 1)
+        main_layout.addWidget(group_box_pulse, 2, 1,2,1)
 
         # Custom pulses
         group_box_stim_params = QGroupBox("Custom pulse train", self)
@@ -319,7 +320,7 @@ class ArduinoController(QWidget):
 
         self.calibration_plot_layout = QVBoxLayout()
         self.calibration_plot_layout.addWidget(self.calibration_canvas)
-        main_layout.addLayout(self.calibration_plot_layout, 0, 3, 3, 1)
+        main_layout.addLayout(self.calibration_plot_layout, 0, 3, 4, 1)
 
         # Save calibration button
         load_calibration_button = QPushButton("Load Calibration Data", self)
@@ -442,7 +443,7 @@ class ArduinoController(QWidget):
         actions_layout.addWidget(self.log_lineedit, 2, 1, 1, 2)
         actions_layout.addWidget(self.log_entry_button, 2, 3)
 
-        main_layout.addWidget(group_box_actions, 2, 2)
+        main_layout.addWidget(group_box_actions, 2, 2,2,1)
 
         # Set up the main window
         self.setLayout(main_layout)
@@ -908,17 +909,31 @@ class ArduinoController(QWidget):
             w = item.widget()
             if w:
                 w.deleteLater()
-
+        set_odor_map_button = QPushButton("Set Odor Map", self)
+        set_odor_map_button.clicked.connect(self.handle_set_odor_map)
+        self.olfactometer_layout.addWidget(set_odor_map_button)
         if self.controller.odor_map is None:
             # If no map, show a single button to set odor map
-            set_odor_map_button = QPushButton("Set Odor Map", self)
-            set_odor_map_button.clicked.connect(self.handle_set_odor_map)
-            self.olfactometer_layout.addWidget(set_odor_map_button)
+            pass
         else:
+            # Add a single duration input above the button group
+            duration_layout = QHBoxLayout()
+            duration_label = QLabel("Duration (0-300)s:", self)
+            self.odor_presentation_duration_edit = QLineEdit(self)
+            self.odor_presentation_duration_edit.setText(f'{self.odor_presentation_duration:0.1f}')
+            self.odor_presentation_duration_edit.setValidator(QDoubleValidator(0.0, 300, 2))
+            set_duration_button = QPushButton("Set Duration", self)
+            set_duration_button.clicked.connect(self.update_odor_presentation_duration)
+            duration_layout.addWidget(duration_label)
+            duration_layout.addWidget(self.odor_presentation_duration_edit)
+            duration_layout.addWidget(set_duration_button)
+            self.olfactometer_layout.addLayout(duration_layout)
+
             # If map is set, create toggle buttons for each odor
             button_group = QButtonGroup(self)
             button_group.setExclusive(True)
             for idx, odor_name in self.controller.odor_map.items():
+                row_layout = QHBoxLayout()
                 if odor_name == 'Not Connected':
                     odor_button = QPushButton(f"Valve {idx} {odor_name.lower()}", self)
                     odor_button.setEnabled(False)
@@ -926,21 +941,38 @@ class ArduinoController(QWidget):
                     odor_button = QPushButton(f"Present {odor_name}", self)
                 odor_button.setCheckable(True)
                 button_group.addButton(odor_button, idx)
-                odor_button.clicked.connect(lambda checked, odor_name=odor_name : self.toggle_odor(odor_name,checked))
-                self.olfactometer_layout.addWidget(odor_button)
+                odor_button.clicked.connect(lambda checked, odor_name=odor_name : self.toggle_odor(odor_name))
+                row_layout.addWidget(odor_button)
+
+                # Add button to present odor for specified duration
+                if odor_name == 'Not Connected':
+                    present_button = QPushButton(f"", self)
+                    present_button.setEnabled(False)
+                else:                    
+                    present_button = QPushButton(f"Present for {self.odor_presentation_duration:0.1f}s", self)
+                    present_button.clicked.connect(lambda checked, odor_name=odor_name: self.present_odor_for_duration(odor_name, self.odor_presentation_duration))
+                row_layout.addWidget(present_button)
+
+                self.olfactometer_layout.addLayout(row_layout)
+
+    def update_odor_presentation_duration(self):
+        self.odor_presentation_duration = float(self.odor_presentation_duration_edit.text())
+        self.refresh_olfactometer_ui()
 
     def handle_set_odor_map(self):
         # Import or define OdorMapDialog in your code
         from gui import OdorMapDialog  # Adjust import path as needed
-        dialog = OdorMapDialog()
+        dialog = OdorMapDialog(odor_map=self.controller.odor_map)
         if dialog.exec_() == QDialog.Accepted:
             self.controller.odor_map = dialog.odor_map
             print(self.controller.odor_map)
             self.refresh_olfactometer_ui()
 
-    def toggle_odor(self, odor_name,state):
-        print(odor_name)
+    def toggle_odor(self, odor_name):
         self.controller.present_odor(odor_name)
+
+    def present_odor_for_duration(self, odor_name, duration):
+        self.controller.present_odor(odor_name, duration)
 
     # Shutdown
     def closeEvent(self, event):

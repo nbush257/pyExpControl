@@ -1365,6 +1365,12 @@ class Controller:
         log_df.loc[gasses.index, :] = gasses
 
         log_df.to_csv(save_fn, sep="\t")
+        if self.odor_map is not None:
+            odor_save_fn = path.joinpath(self.odormap_filename)
+            with open(odor_save_fn, "w") as f:
+                json.dump(self.odor_map, f)
+            if verbose:
+                print(f"Odor map saved to {self.odormap_filename}")
 
         if verbose:
             print(f"Log saved to {save_fn}")
@@ -1403,7 +1409,10 @@ class Controller:
         """
         msg = msg or "Waiting"
         start_time = time.time()
-        update_step = 1
+        if wait_time_sec<5:
+            update_step = 0.1
+        else:
+            update_step = 1
         cancelled = False
 
         if progress == "bar":
@@ -1485,6 +1494,8 @@ class Controller:
         for ii, cat in enumerate(categories):
             plt.text(plt.gca().get_xlim()[0], ii, cat)
 
+
+    # TODO: Clean this up with sglx
     def get_logname_from_user(self, verbose=True):
         """
         Prompt the user to input the gate destination, run name, gate number, and trigger number for logging purposes.
@@ -1529,8 +1540,14 @@ class Controller:
         self.log_filename = (
             f"_cibbrig_log.table.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.tsv"
         )
+        self.odormap_filename = (
+            f"_cibbrig_odors.map.{runname}.g{gate_num:0.0f}.t{trigger_num:0.0f}.json"
+        )
         self.gate_dest.mkdir(exist_ok=True)
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+        if self.odor_map is not None:
+            print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+
 
     def get_gates(self):
         """
@@ -1569,6 +1586,9 @@ class Controller:
         # Set the log filename
         self.log_filename = (
             f"_cibbrig_log.table.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.tsv"
+        )
+        self.odormap_filename = (
+            f"_cibbrig_odors.map.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.json"
         )
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
 
@@ -1773,7 +1793,7 @@ class Controller:
 
         # If this is a pulse
         if duration_sec is not None:
-            time.sleep(duration_sec)
+            self.wait(duration_sec, msg=f"Presenting {odor}", progress="gui")
             valve_num = get_valve_num("H20")
             valve_string = "".join(
                 ["1" if ii == valve_num else "0" for ii in range(8)]
