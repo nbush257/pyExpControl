@@ -1761,7 +1761,7 @@ class Controller:
                     print('No Olfactometer found!')
                     break
                 if read_byte==255:
-                    print('Handshake recieved')
+                    print('Handshake recieved') if verbose else None
                     break
                 
                 
