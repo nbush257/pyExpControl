@@ -116,7 +116,13 @@ void processCommandS(){
 }
   olfactometer.writeUint8(valve);
   digitalWrite(statusPin, HIGH);
-  while (olfactometer.available()==0){} // Wait for response
+  int t_wait_init = millis();
+  while (olfactometer.available()==0){
+    if ((millis()-t_wait_init)>1000){
+      pyControl.writeUint8(111);
+      break;
+    }
+  } // Wait for response
   while (olfactometer.available()>0){olfactometer.readByte();} // Clear response from olfactometer
   digitalWrite(statusPin, LOW);
 }

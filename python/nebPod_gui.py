@@ -63,6 +63,7 @@ class ArduinoController(QWidget):
         self.log_enabled=False
         self.calibration_data = None
         self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
+        self.init_olfactometer()
         self.increment_gate = True
         self.end_hb()
         self.open_valve(0)
@@ -974,6 +975,11 @@ class ArduinoController(QWidget):
     def present_odor_for_duration(self, odor_name, duration):
         self.controller.present_odor(odor_name, duration)
 
+    def init_olfactometer(self):
+        if self.controller.odor_map is None:
+            self.controller.set_all_olfactometer_valves('10000000')
+        else:
+            self.controller.present_odor("H20")
     # Shutdown
     def closeEvent(self, event):
         # Close the ArCOM port when the application is closed
@@ -983,6 +989,7 @@ class ArduinoController(QWidget):
         except:
             print('No recording to stop')
         self.open_valve(0)
+        self.init_olfactometer()
         if self.IS_CONNECTED:
             self.controller.serial_port.close()
             self.IS_CONNECTED = False

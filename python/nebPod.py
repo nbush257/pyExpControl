@@ -1745,8 +1745,27 @@ class Controller:
         self.serial_port.write(decimal_value, "uint8")
 
         print(f"Set all valves to {binary_string}") if verbose else None
-        self.block_until_read()
+        self.wait_for_response()
         return ("set_all_valves", "odor", {"valve": binary_string})
+    
+    def wait_for_response(self,timeout=10,verbose=False):
+        """
+        Wait for a response from the teensy controller
+        """
+        start_time = time.time()
+        while (time.time()-start_time)<timeout:
+            if self.serial_port.bytesAvailable()>0:
+                read_byte = self.serial_port.read(1,'uint8')
+                print(f"Received byte {read_byte}") if verbose else None
+                if read_byte==111:
+                    print('No Olfactometer found!')
+                    break
+                if read_byte==255:
+                    print('Handshake recieved')
+                    break
+                
+                
+
 
     @repeater
     @logger

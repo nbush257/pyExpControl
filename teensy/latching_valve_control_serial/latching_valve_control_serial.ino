@@ -90,6 +90,7 @@ void setup() {
   pinMode(13,OUTPUT);
   digitalWrite(13,HIGH);
   SerialUSB.println("Connected!");
+  openValve(1);
 }
 
 void loop() {
