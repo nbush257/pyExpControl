@@ -167,21 +167,21 @@ void processCommandC(){
 void processCommandO(){ // opto utilities
   char subcommand = pyControl.readChar();
   int amp = pyControl.readUint8();
-  float amp_f = amp2float(amp);
+  // float amp_f = amp2float(amp); // preserved for backwards compatibility but not used on digital laser
   uint power;
 
   switch (subcommand){
     case 'p':
-      power = digital_laser.poll_laser_power(amp_f);
+      power = digital_laser.poll_laser_power(amp);
       pyControl.writeUint16(power);
       break;
     //poll
     case 'o':
-      digital_laser._turn_on(amp_f);
+      digital_laser._turn_on(amp);
       break;
     // laser on
     case 'x':
-      digital_laser._turn_off(amp_f);
+      digital_laser._turn_off(amp);
       break;
     //laser off
   }
@@ -229,9 +229,9 @@ void processCommandV() {
 void processCommandP() {
   int duration = pyControl.readUint16();
   int amp = pyControl.readUint8();
-  float amp_f = amp2float(amp);
+  // float amp_f = amp2float(amp);
 
-  digital_laser.pulse(amp_f,duration);
+  digital_laser.pulse(amp,duration);
 }
 
 //Trains
@@ -240,8 +240,8 @@ void processCommandT() {
   int freq = pyControl.readUint8();
   int amp = pyControl.readUint8();
   int pulse_dur = pyControl.readUint8();
-  float amp_f = amp2float(amp);
-  digital_laser.train(amp_f,float(freq), pulse_dur, duration);
+  // float amp_f = amp2float(amp);
+  digital_laser.train(amp,float(freq), pulse_dur, duration);
 }
 
 void processCommandA() {
@@ -328,7 +328,7 @@ void runPhasic() {
   int duration = pyControl.readUint16();  // Epoch duration
   int intertrain_interval = pyControl.readUint16();  // Time between stimulation periods
   int amp = pyControl.readUint8(); // Amplitude
-  float amp_f = amp2float(amp);
+  // float amp_f = amp2float(amp);
   
   int pulse_dur=0;
   int freq=0;
@@ -340,32 +340,32 @@ void runPhasic() {
     case 'e': // Expiratory 
       switch (mode){
         case 'h':
-          digital_laser.phasic_stim_exp(n,amp_f,duration,intertrain_interval);
+          digital_laser.phasic_stim_exp(n,amp,duration,intertrain_interval);
           break;
         case 'p':
           pulse_dur = pyControl.readUint8();
-          digital_laser.phasic_stim_exp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+          digital_laser.phasic_stim_exp_pulse(n,amp,duration,intertrain_interval,pulse_dur);
           break;
         case 't':
           pulse_dur = pyControl.readUint8();
           freq = pyControl.readUint8();
-          digital_laser.phasic_stim_exp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+          digital_laser.phasic_stim_exp_train(n,amp,float(freq),pulse_dur,duration,intertrain_interval);
           break;
       }
       break;
     case 'i':
       switch (mode){
         case 'h':
-          digital_laser.phasic_stim_insp(n,amp_f,duration,intertrain_interval);
+          digital_laser.phasic_stim_insp(n,amp,duration,intertrain_interval);
           break;
         case 'p':
           pulse_dur = pyControl.readUint8();
-          digital_laser.phasic_stim_insp_pulse(n,amp_f,duration,intertrain_interval,pulse_dur);
+          digital_laser.phasic_stim_insp_pulse(n,amp,duration,intertrain_interval,pulse_dur);
           break;
         case 't':
           pulse_dur = pyControl.readUint8();
           freq = pyControl.readUint8();
-          digital_laser.phasic_stim_insp_train(n,amp_f,float(freq),pulse_dur,duration,intertrain_interval);
+          digital_laser.phasic_stim_insp_train(n,amp,float(freq),pulse_dur,duration,intertrain_interval);
           break;
     }
       break;

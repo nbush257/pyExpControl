@@ -56,7 +56,7 @@ class ArduinoController(QWidget):
             self.IS_CONNECTED = False
             print(f"No Serial port found on {PORT}. GUI will show up but not do anything")
         self.port = PORT
-        self.laser_amp = 8 # bits, out of 16, to set duty cycle for PWM
+        self.laser_amp = 16 # bits, out of 16, to set duty cycle for PWM
         self.null_voltage = 0.4
         self.digital_laser_mode='B'
         self.hb_time = 0.5
@@ -254,10 +254,10 @@ class ArduinoController(QWidget):
         self.pulse_dur_lineedit.setValidator(QIntValidator(0, 1000))
         self.pulse_dur_lineedit.textChanged.connect(self.update_train_pulse_dur)
         # Laser amplitude
-        amp_label_text = QLabel('PWM duty cycle, int 0-15 out of 16')
+        amp_label_text = QLabel('PWM duty cycle, int 0-16 out of 16')
         self.laser_amp_lineedit = QLineEdit()
         self.laser_amp_lineedit.setText(f'{self.laser_amp:.0f}')
-        self.laser_amp_lineedit.setValidator(QIntValidator(0, 15))
+        self.laser_amp_lineedit.setValidator(QIntValidator(0, 110))
         self.laser_amp_lineedit.textChanged.connect(self.update_laser_amplitude_from_lineedit)
         # self.laser_amp_dial = QDial()
         # self.laser_amp_dial.setRange(0, 100)

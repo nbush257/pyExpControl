@@ -581,12 +581,12 @@ class Controller:
         #  Convert to ms for arduino
         duration = sec2ms(pulse_duration_sec)
         print(f"Running opto pulse at {amp:.2f}V for {duration}ms") if verbose else None
-        amp_int = self._amp2int(amp)
+        # amp_int = self._amp2int(amp)
 
         # Send the command to the teensy
         self.serial_port.serialObject.write("p".encode("utf-8"))
         self.serial_port.write(duration, "uint16")
-        self.serial_port.write(amp_int, "uint8")
+        self.serial_port.write(amp, "uint8")
         self.block_until_read()
 
         label = "opto_pulse"
@@ -620,13 +620,13 @@ class Controller:
         ) if verbose else None
 
         self.empty_read_buffer()
-        amp_int = self._amp2int(amp)
+        # amp_int = self._amp2int(amp)
 
         # Send the command to the teensy
         self.serial_port.serialObject.write("t".encode("utf-8"))
         self.serial_port.write(duration, "uint16")
         self.serial_port.write(freq, "uint8")
-        self.serial_port.write(amp_int, "uint8")
+        self.serial_port.write(amp, "uint8")
         self.serial_port.write(pulse_duration, "uint8")
         self.block_until_read()
 
@@ -745,7 +745,7 @@ class Controller:
 
         # Send the command to the teensy
         self.empty_read_buffer()
-        amp_int = self._amp2int(amp)
+        # amp_int = self._amp2int(amp)
         self.serial_port.serialObject.write("a".encode("utf-8"))
         self.serial_port.serialObject.write("p".encode("utf-8"))
         self.serial_port.serialObject.write(phase.encode("utf-8"))
@@ -753,7 +753,7 @@ class Controller:
         self.serial_port.write(1, "uint8") # this is leftover from some unfixed teensy code which allowed user to set the number of stimulations
         self.serial_port.write(duration_ms, "uint16")
         self.serial_port.write(intertrain_interval_ms, "uint16")
-        self.serial_port.write(amp_int, "uint8")
+        self.serial_port.write(amp, "uint8")
         if mode == "t":
             self.serial_port.write(pulse_dur_ms, "uint8")
             self.serial_port.write(int(freq), "uint8")
@@ -784,10 +784,10 @@ class Controller:
             verbose (bool, optional): Verbosity flag. If True, prints the amplitude. Defaults to False.
         """
         print(f"Turning on laser at amp: {amp}") if verbose else None
-        amp_int = self._amp2int(amp)
+        # amp_int = self._amp2int(amp)
         self.serial_port.serialObject.write("o".encode("utf-8"))
         self.serial_port.serialObject.write("o".encode("utf-8"))
-        self.serial_port.write(amp_int, "uint8")
+        self.serial_port.write(amp, "uint8")
         self.block_until_read()
 
     def turn_off_laser(self, amp, verbose=False):
@@ -797,12 +797,13 @@ class Controller:
         Args:
             amp (float): Amplitude of the laser, a float between 0-1 (v).
             verbose (bool, optional): Verbosity flag. If True, prints the amplitude. Defaults to False.
+            The reason the amplitude is passed is to sigmoidally ramp down. Not needed for binary off
         """
         print(f"Turning off laser from amp: {amp}") if verbose else None
-        amp_int = self._amp2int(amp)
+        #amp_int = self._amp2int(amp) # legacy from when amp was float between 0 and 1
         self.serial_port.serialObject.write("o".encode("utf-8"))
         self.serial_port.serialObject.write("x".encode("utf-8"))
-        self.serial_port.write(amp_int, "uint8")
+        self.serial_port.write(amp, "uint8")
         self.block_until_read()
 
     def set_max_milliwattage(self, val):
@@ -836,13 +837,13 @@ class Controller:
         """
 
         # Convert the amplitude to an integer
-        amp_int = self._amp2int(amp)
+        # amp_int = self._amp2int(amp)
         print(f"Testing amplitude: {amp}") if verbose else None
 
         # Send the command to the teensy
         self.serial_port.serialObject.write("o".encode("utf-8"))
         self.serial_port.serialObject.write("p".encode("utf-8"))
-        self.serial_port.write(amp_int, "uint8")
+        self.serial_port.write(amp, "uint8")
         while self.serial_port.bytesAvailable() < 2:
             time.sleep(0.001)
 

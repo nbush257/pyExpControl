@@ -1,5 +1,6 @@
 #include "Digital_Laser.h"
 #include "Arduino.h"
+#include <cmath>
 
 Digital_Laser::Digital_Laser(){
 }
@@ -40,7 +41,16 @@ void Digital_Laser::_turn_on_binary(int pwm_level){
   ///////////////////////////////////////////
   //////// new digital PWM code /////////////
   ///////////////////////////////////////////
-  analogWrite(PWM_PIN, pwm_level);
+  if (pwm_level >= (max_pwm)){
+    pinMode(PWM_PIN, OUTPUT); // this is a weakness of the Teensy, this step is required. AnalogWrite misbehaves at full amplitude.
+    digitalWrite(NOTIFY_PIN, HIGH); // always notify first
+    digitalWrite(PWM_PIN, HIGH);
+    
+  } else{
+    digitalWrite(NOTIFY_PIN, HIGH); // always notify first
+    analogWrite(PWM_PIN, pwm_level);
+    
+  }
 }
 
 void Digital_Laser::_turn_off_binary(){
@@ -53,7 +63,9 @@ void Digital_Laser::_turn_off_binary(){
   ///////////////////////////////////////////
   //////// new digital PWM code /////////////
   ///////////////////////////////////////////
-  analogWrite(PWM_PIN, 0);
+  pinMode(PWM_PIN, OUTPUT); // this is a weakness of the Teensy, this step is required. AnalogWrite misbehaves at full amplitude.
+  digitalWrite(PWM_PIN, LOW);
+  digitalWrite(NOTIFY_PIN, LOW); // notify last
 }
 
 void Digital_Laser::_turn_on_sigm(int amp){
