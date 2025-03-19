@@ -312,6 +312,7 @@ class Controller:
         assert record_control in ["sglx", "ttl"], "record_control must be sglx or ttl"
         self.record_control = record_control
         self.laser_calibration_data = None
+        self.recname = None
 
     def connect_to_sglx(self):
         """
@@ -1154,7 +1155,10 @@ class Controller:
         self.check_is_running()
 
         self.log = []  # Reset the log.
-        self.get_logname_from_sglx(increment_gate=increment_gate)
+        self.generate_recording_names(increment_gate=increment_gate)
+
+        fn = c_char_p(str(self.recname).encode())
+        c_sglx_setNextFileName(self.sglx_handle, fn)
 
         # If laser_calibration data exists, save it to the opto_calibration.json in the gate folder
         if self.laser_calibration_data is not None:
@@ -1557,7 +1561,7 @@ class Controller:
         gate_nums = [int(gate.name.split("_g")[-1]) for gate in gates]
         return (gates, gate_nums)
 
-    def get_logname_from_sglx(self, increment_gate=True):
+    def generate_recording_names(self, increment_gate=True):
         """
         Use the spikeGLX API to get run, gate, and trigger info
         """
@@ -1583,6 +1587,11 @@ class Controller:
         self.gate_dest = data_dir.joinpath(f"{runname}_g{g_suffix}")
         self.gate_dest.mkdir(exist_ok=True)
 
+        # Set g_suffix and t_suffix to integers
+        self.g_suffix = f'{g_suffix:0.0f}'
+        self.t_suffix = f'{t_suffix:0.0f}'
+        self.recname = self.gate_dest.joinpath(f"{runname}_g{g_suffix}_t{t_suffix}")
+
         # Set the log filename
         self.log_filename = (
             f"_cibbrig_log.table.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.tsv"
@@ -1591,6 +1600,8 @@ class Controller:
             f"_cibbrig_odors.map.{runname}.g{g_suffix:0.0f}.t{t_suffix:0.0f}.json"
         )
         print(f"Log will save to {self.gate_dest}/{self.log_filename}")
+        print(f"Odor map will save to {self.gate_dest}/{self.odormap_filename}")
+        print(f"Recording name is {self.recname}")
 
     def get_last_trigger(self, gate_num):
         """
