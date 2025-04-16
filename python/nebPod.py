@@ -837,14 +837,17 @@ class Controller:
         print(f"Testing amplitude: {amp}") if verbose else None
 
         # Send the command to the teensy
+        self.empty_read_buffer()
+
         self.serial_port.serialObject.write("o".encode("utf-8"))
         self.serial_port.serialObject.write("p".encode("utf-8"))
         self.serial_port.write(amp_int, "uint8")
         while self.serial_port.bytesAvailable() < 2:
-            time.sleep(0.001)
-
+            time.sleep(0.005)
+        
         # Convert the serial uint16 read to a voltage or power
         power_int = self.serial_port.read(1, "uint16")  # Power as a 10bit integer
+        print(power_int)
         power_v = power_int / self.ADC_RANGE * self.V_REF  # Powerr as a voltage
         power_mw = (power_v / 2.0) * self.MAX_MILLIWATTAGE  # power in milliwatts
         self.block_until_read()
@@ -883,7 +886,7 @@ class Controller:
         # Initialize output
         powers = np.zeros_like(amps_to_test) * np.nan
         self.turn_off_laser(0)
-
+        self.poll_laser_power(0)
         for ii, amp in enumerate(amps_to_test):
             power_mw = self.poll_laser_power(amp, verbose=verbose, output=output)
             powers[ii] = power_mw
@@ -1066,7 +1069,7 @@ class Controller:
 
     @logger
     @event_timer
-    def stop_recording(self, silent=True, reset_to_O2=False, verbose=True):
+    def stop_recording(self, silent=False, reset_to_O2=False, verbose=True):
         """
         Stop a recording using either the spikeglx api or the TTL method.
         Optionally reset the O2.

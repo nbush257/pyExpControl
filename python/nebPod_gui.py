@@ -472,7 +472,6 @@ class ArduinoController(QWidget):
             self.controller.serial_port.close()
             self.port_connect_button.setStyleSheet('background-color: #FFFFFF; font-weight: bold;font-size: 16px')
             self.IS_CONNECTED=False
-            print('Disconnected! Warning, GUI will crash if try to use')
             self.setWindowTitle(self.default_title + " (DISCONNECTED)")
         else:
             print('Not connected to any COM port')
@@ -667,10 +666,8 @@ class ArduinoController(QWidget):
             pass
 
     def update_max_milliwattage(self,value):
-        try:
-            self.controller.set_max_milliwattage(float(value))
-        except:
-            pass
+        self.controller.set_max_milliwattage(float(value))
+
 
     def viz_custom_train(self):
         onsets = np.arange(0,self.train_duration*1000,1000/self.train_freq)
@@ -757,6 +754,7 @@ class ArduinoController(QWidget):
                 self.ax.axhline(pwr, color='k', ls='--')
                 self.ax.axvline(volts_supplied[idx], color='k', ls='--')
                 self.ax.text(volts_supplied[idx], pwr, f'{pwr:.1f}mW', ha='center', va='center', color='k', rotation=90)
+            self.ax.set_xlim(0.4, 0.75)  
             # If calibration  date is available, add it to the plot
             # If it is older than 1 day make the text red
             if 'calibration_date' in self.calibration_data:
