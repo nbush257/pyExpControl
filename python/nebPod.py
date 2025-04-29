@@ -32,10 +32,13 @@ Example:
         return (label, category, params)
 """
 
-# TODO: extend and test functionality with thorlabs LED drivers (long term)
 import sys
+from pathlib import Path
+import os
+curr_dir = Path(os.getcwd())
+sys.path.append(str(curr_dir))
+sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
 
-sys.path.append("D:/pyExpControl/ArCOM/Python3")
 from ArCOM import ArCOMObject
 import time
 import matplotlib.pyplot as plt
@@ -73,18 +76,18 @@ import json
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 SUBJECT_DIR = Path(r"D:\sglx_data")
-curr_dir = Path(os.getcwd())
-sys.path.append(str(curr_dir))
-sys.path.append(str(curr_dir.parent.joinpath("ArCOM/Python3")))
 
 sglx_api_path = Path(r"C:\helpers\SpikeGLX-CPP-SDK\Windows\Python\sglx_pkg")
-os.environ["PATH"] = str(sglx_api_path) + os.pathsep + os.environ["PATH"]
+if not sglx_api_path.exists():
+    print(f"SpikeGLX API not found!")
+else:
+    os.environ["PATH"] = str(sglx_api_path) + os.pathsep + os.environ["PATH"]
 
-sys.path.append(str(sglx_api_path))
-SGLX_ADDR = "localhost"
-SGLX_PORT = 4142
-from sglx import *
-from ctypes import byref, POINTER, c_int, c_short, c_bool, c_char_p
+    sys.path.append(str(sglx_api_path))
+    SGLX_ADDR = "localhost"
+    SGLX_PORT = 4142
+    from sglx import *
+    from ctypes import byref, POINTER, c_int, c_short, c_bool, c_char_p
 
 
 def interval_timer(func):

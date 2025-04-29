@@ -15,11 +15,12 @@ import datetime
 import pandas as pd
 import json
 import sys
-sys.path.append(r'D:/pyExpControl/python')
-sys.path.append(r'D:/pyExpControl/ArCOM/Python3')
 
-from ArCOM import ArCOMObject # Import ArCOMObject
+sys.path.append(str(Path(__file__).parent.parent / 'python'))
+
 import nebPod
+from nebPod import ArCOMObject # Import ArCOMObject
+
 try:
     import qdarktheme
     HAS_STYLING = True
@@ -48,12 +49,10 @@ class ArduinoController(QWidget):
         self.train_freq = 10.0
         self.train_duration  = 1.0
         self.train_pulse_dur = .025 
-        self.gas_map = self.controller.gas_map
         self.insp_phasic_duration = 10.0
         self.exp_phasic_duration = 4.0
         self.odor_presentation_duration = 5.0
         self.save_path = Path('D:/')
-        self.controller.gate_dest = self.save_path
         self.script_filename = None
         self.implemented_wavelengths = ['473nm','635nm','undefined']
         self.powermeter_lims = {'473nm':310.,'635nm':140.}
@@ -62,13 +61,24 @@ class ArduinoController(QWidget):
         self.light_wavelength=self.implemented_wavelengths[0]
         self.log_enabled=False
         self.calibration_data = None
-        self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
-        self.init_olfactometer()
         self.increment_gate = True
-        self.end_hb()
-        self.open_valve(0)
+
         self.figure, self.ax = plt.subplots()
         self.calibration_canvas = FigureCanvasQTAgg(self.figure)
+        if self.IS_CONNECTED:
+            self.controller.gate_dest = self.save_path
+            self.controller.init_cobalt(mode=self.cobalt_mode,null_voltage=self.null_voltage)
+            self.gas_map = self.controller.gas_map 
+            self.init_olfactometer()
+            self.end_hb()
+            self.open_valve(0)
+            self.max_milliwattage = self.controller.MAX_MILLIWATTAGE
+
+        else:
+            self.gas_map = ['gas1','gas2','gas3','gas4','gas5']
+            self.max_milliwattage = self.powermeter_lims[self.light_wavelength]
+
+
         self.init_ui()
         self.plot_calibration_data()
 
@@ -300,7 +310,7 @@ class ArduinoController(QWidget):
         # Calibration plot
         max_milliwatt_label = QLabel('Photometer max power: (0-1000mw)')
         self.max_milliwatt_lineedit = QLineEdit()
-        self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
+        self.max_milliwatt_lineedit.setText(f'{self.max_milliwattage:.0f}')
         self.max_milliwatt_lineedit.setValidator(QDoubleValidator(0.0, 1000.0, 1))
         self.max_milliwatt_lineedit.textChanged.connect(self.update_max_milliwattage)
 
@@ -666,7 +676,11 @@ class ArduinoController(QWidget):
             pass
 
     def update_max_milliwattage(self,value):
-        self.controller.set_max_milliwattage(float(value))
+        if self.IS_CONNECTED:
+            self.controller.set_max_milliwattage(float(value))
+        else:
+            self.max_milliwattage = float(value)
+            print("No controller found")
 
 
     def viz_custom_train(self):
@@ -828,7 +842,9 @@ class ArduinoController(QWidget):
             self.controller.MAX_MILLIWATTAGE = self.powermeter_lims[self.light_wavelength]
         except:
             print('Not changing photometer limits')
-        self.max_milliwatt_lineedit.setText(f'{self.controller.MAX_MILLIWATTAGE:.0f}')
+        self.max_milliwattage = self.powermeter_lims[self.light_wavelength]
+        self.max_milliwatt_lineedit.setText(f'{self.max_milliwattage:.0f}')
+
         print(f'Selecting {self.light_wavelength} wavelength')
 
     def select_fiber(self):
@@ -911,7 +927,7 @@ class ArduinoController(QWidget):
         set_odor_map_button = QPushButton("Set Odor Map", self)
         set_odor_map_button.clicked.connect(self.handle_set_odor_map)
         self.olfactometer_layout.addWidget(set_odor_map_button)
-        if self.controller.odor_map is None:
+        if not self.IS_CONNECTED or self.controller.odor_map is None:
             # If no map, show a single button to set odor map
             pass
         else:
