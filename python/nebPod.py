@@ -62,7 +62,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QMessageBox,
 )
-from gui import UserDelay, WaitDialog, LaserAmpDialog,OdorMapDialog
+from gui import UserDelay, WaitDialog, LaserAmpDialog,OdorMapDialog,NumericalInputDialog
 
 # Import qwidget
 from PyQt5.QtWidgets import QWidget
@@ -1765,6 +1765,14 @@ class Controller:
         self.wait_for_response()
         return ("set_all_valves", "odor", {"valve": binary_string})
     
+    def get_user_input_number(self,prompt, default_value=0,min_value=None, max_value=None):
+        # Open a dialog to get a number from the user from th gui.py file
+        ui = NumericalInputDialog(prompt, default_value=default_value,min_value=min_value, max_value=max_value)
+        if ui.exec_() == QDialog.Accepted:
+            value = ui.value
+            print(f"User input: {value}")
+            return value
+
     def wait_for_response(self,timeout=10,verbose=False):
         """
         Wait for a response from the teensy controller

@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox, QLineEdit, QHBoxLayout
 import numpy as np
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDoubleValidator
 
 AVAILABLE_ODORS = ['Not Connected','H20','octanal','nh3','vanilla','bedding']
 
@@ -448,3 +449,47 @@ class OdorMapDialog(QDialog):
         # Create the mapping from ints 0-7 to the selected odor string
         self.odor_map = {i: self.combo_boxes[i].currentText() for i in range(8)}
         super().accept()
+
+# Create a class that prompts the user for a numerical value
+class NumericalInputDialog(QDialog):
+    def __init__(self, prompt, default_value=0., min_value=None,max_value=None,parent=None):
+        super().__init__(parent)
+        self.prompt = prompt
+        self.default_value = default_value
+        if min_value is None:
+            min_value = 0.0
+        if max_value is None:
+            max_value = 100.0
+        self.min_value = min_value 
+        self.max_value = max_value 
+        self.value = default_value
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("User Input")
+        layout = QVBoxLayout(self)
+
+        label = QLabel(self.prompt, self)
+        layout.addWidget(label)
+        self.input_field = QLineEdit(self)
+        validator = QDoubleValidator(self.min_value, self.max_value, 2, self)
+        self.input_field.setValidator(validator)
+        self.input_field.setText(str(self.default_value))
+        layout.addWidget(self.input_field)
+
+        ok_button = QPushButton("OK", self)
+        ok_button.clicked.connect(self.accept)
+        layout.addWidget(ok_button)
+
+        cancel_button = QPushButton("Cancel", self)
+        cancel_button.clicked.connect(self.reject)
+        layout.addWidget(cancel_button)
+
+        self.setLayout(layout)
+   
+    def accept(self):
+        self.value = float(self.input_field.text())
+        super().accept()
+    def reject(self):
+        self.value = None
+        super().reject()
