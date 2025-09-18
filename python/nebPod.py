@@ -513,8 +513,8 @@ class Controller:
         self.serial_port.serialObject.write(phase.encode("utf-8"))
         self.serial_port.serialObject.write(mode.encode("utf-8"))
         self.serial_port.write(n, "uint8")
-        self.serial_port.write(duration_ms, "uint16")
-        self.serial_port.write(intertrain_interval_ms, "uint16")
+        self.serial_port.write(duration_ms, "uint32")
+        self.serial_port.write(intertrain_interval_ms, "uint32")
         if mode == "t":
             self.serial_port.write(pulse_dur_ms, "uint8")
             self.serial_port.write(int(freq), "uint8")
@@ -751,8 +751,8 @@ class Controller:
         self.serial_port.serialObject.write(phase.encode("utf-8"))
         self.serial_port.serialObject.write(mode.encode("utf-8"))
         self.serial_port.write(1, "uint8") # this is leftover from some unfixed teensy code which allowed user to set the number of stimulations
-        self.serial_port.write(duration_ms, "uint16")
-        self.serial_port.write(intertrain_interval_ms, "uint16")
+        self.serial_port.write(duration_ms, "uint32")
+        self.serial_port.write(intertrain_interval_ms, "uint32")
         self.serial_port.write(amp_int, "uint8")
         if mode == "t":
             self.serial_port.write(pulse_dur_ms, "uint8")

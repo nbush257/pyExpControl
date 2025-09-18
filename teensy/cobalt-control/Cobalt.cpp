@@ -159,14 +159,14 @@ void Cobalt::run_multiple_trains(int n, float amp, float freq_hz, uint dur_pulse
 }
 
 
-void Cobalt::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial_interval){
+void Cobalt::phasic_stim_insp(uint n, float amp, unsigned long dur_active,unsigned long intertrial_interval){
     for (uint ii=0;ii<n;ii++){
 
   bool laser_on=false;
   _turn_off(NULL_VOLTAGE);
 
   
-  uint t_start = millis();
+  unsigned long t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
     thresh_val =  get_thresh();
@@ -187,12 +187,12 @@ void Cobalt::phasic_stim_insp(uint n, float amp, uint dur_active,uint intertrial
 }
 }
 
-void Cobalt::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
+void Cobalt::phasic_stim_insp_pulse(uint n, float amp, unsigned long dur_active,unsigned long intertrial_interval,uint pulse_dur){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
   
-  uint t_start = millis();
+  unsigned long t_start = millis();
   bool have_stimmed = false;
 
   while ((millis()-t_start)<=dur_active){
@@ -212,7 +212,7 @@ void Cobalt::phasic_stim_insp_pulse(uint n, float amp, uint dur_active,uint inte
 }
 }
 
-void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
+void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_ms, unsigned long dur_active,unsigned long intertrial_interval){
   for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -221,7 +221,7 @@ void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_m
   uint full_duty_time = (1000.0/freq_hz)*1000; //in microseconds
 
   uint last_stim_on = micros();
-  uint t_start = millis();
+  unsigned long t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
     thresh_val =  get_thresh();
@@ -249,13 +249,13 @@ void Cobalt::phasic_stim_insp_train(uint n, float amp, float freq_hz, uint dur_m
 }
 
 
-void Cobalt::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_interval){
+void Cobalt::phasic_stim_exp(uint n, float amp, unsigned long dur_active,unsigned long intertrial_interval){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
   bool laser_on=false;
     
-  uint t_start = millis();
+  unsigned long t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
     thresh_val =  get_thresh();
@@ -274,7 +274,7 @@ void Cobalt::phasic_stim_exp(uint n, float amp, uint dur_active,uint intertrial_
 }
 }
 
-void Cobalt::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint intertrial_interval,uint pulse_dur){
+void Cobalt::phasic_stim_exp_pulse(uint n, float amp, unsigned long dur_active,unsigned long intertrial_interval,uint pulse_dur){
     for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -282,7 +282,7 @@ void Cobalt::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint inter
 
   bool have_stimmed=false;
 
-  uint t_start = millis();
+  unsigned long t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
     thresh_val =  get_thresh();
@@ -300,7 +300,7 @@ void Cobalt::phasic_stim_exp_pulse(uint n, float amp, uint dur_active,uint inter
 }
 }
 
-void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms, uint dur_active,uint intertrial_interval){
+void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms, unsigned long dur_active,unsigned long intertrial_interval){
   for (uint ii=0;ii<n;ii++){
 
   _turn_off(NULL_VOLTAGE);
@@ -310,7 +310,7 @@ void Cobalt::phasic_stim_exp_train(uint n, float amp, float freq_hz, uint dur_ms
   uint full_duty_time = (1000.0/freq_hz)*1000; //in microseconds
 
   uint last_stim_on = micros();
-  uint t_start = millis();
+  unsigned long t_start = millis();
   while ((millis()-t_start)<=dur_active){
     ain_val = analogRead(AIN_PIN);
     thresh_val =  get_thresh();

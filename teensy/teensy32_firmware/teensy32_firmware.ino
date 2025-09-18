@@ -309,8 +309,8 @@ void runPhasic() {
   char phase = pyControl.readChar();
   char mode = pyControl.readChar();
   int n = pyControl.readUint8(); // Number of stim epochs
-  int duration = pyControl.readUint16();  // Epoch duration
-  int intertrain_interval = pyControl.readUint16();  // Time between stimulation periods
+  unsigned long duration = pyControl.readUint32();  // Epoch duration
+  unsigned long intertrain_interval = pyControl.readUint32();  // Time between stimulation periods
   int amp = pyControl.readUint8(); // Amplitude
   float amp_f = amp2float(amp);
   
@@ -361,8 +361,8 @@ void runPhasic_HB() {
   char phase = pyControl.readChar();
   char mode = pyControl.readChar();
   int n = pyControl.readUint8();                     // Number of stim epochs
-  int duration = pyControl.readUint16();             // Epoch duration
-  int intertrain_interval = pyControl.readUint16();  // Time between stimulation periods
+  unsigned long duration = pyControl.readUint32();             // Epoch duration
+  unsigned long intertrain_interval = pyControl.readUint32();  // Time between stimulation periods
 
 
   int pulse_dur = 0;
